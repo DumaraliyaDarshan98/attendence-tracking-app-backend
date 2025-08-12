@@ -1,5 +1,12 @@
-import { connect, disconnect } from 'mongoose';
-import { databaseConfig } from '../config/database.config';
+const { connect, disconnect } = require('mongoose');
+
+// Database configuration (same as in your app)
+const databaseConfig = {
+  uri: process.env.MONGODB_URI || 'mongodb+srv://darshandumaraliya:rJXF3jmWDMBUeThH@attendence-tracking-app.d2dn19p.mongodb.net/?retryWrites=true&w=majority&appName=attendence-tracking-app-clus-1',
+  options: {
+    dbName: process.env.DB_NAME || 'attendance_tracking',
+  },
+};
 
 async function migrateUserRoles() {
   try {
@@ -12,28 +19,28 @@ async function migrateUserRoles() {
     const db = mongoose.connection.db;
     
     // Get collections
-    const usersCollection = db?.collection('users');
-    const rolesCollection = db?.collection('roles');
+    const usersCollection = db.collection('users');
+    const rolesCollection = db.collection('roles');
 
     console.log('Starting user role migration...');
 
     // Find all users with string role names
-    const usersWithStringRoles = await usersCollection?.find({
+    const usersWithStringRoles = await usersCollection.find({
       role: { $type: 'string' }
     }).toArray();
 
-    console.log(`Found ${usersWithStringRoles?.length} users with string role names`);
+    console.log(`Found ${usersWithStringRoles.length} users with string role names`);
 
-    if (usersWithStringRoles?.length === 0) {
+    if (usersWithStringRoles.length === 0) {
       console.log('No users with string role names found. Migration not needed.');
       return;
     }
 
     // Get all roles to map names to ObjectIds
-    const roles = await rolesCollection?.find({}).toArray();
+    const roles = await rolesCollection.find({}).toArray();
     const roleNameToIdMap = new Map();
     
-    roles?.forEach(role => {
+    roles.forEach(role => {
       roleNameToIdMap.set(role.name, role._id);
     });
 
@@ -42,13 +49,13 @@ async function migrateUserRoles() {
     let updatedCount = 0;
     let skippedCount = 0;
 
-    for (const user of usersWithStringRoles || []) {
+    for (const user of usersWithStringRoles) {
       const roleName = user.role;
       
       if (roleNameToIdMap.has(roleName)) {
         // Update user with correct ObjectId
         const roleId = roleNameToIdMap.get(roleName);
-        await usersCollection?.updateOne(
+        await usersCollection.updateOne(
           { _id: user._id },
           { $set: { role: roleId } }
         );
@@ -56,7 +63,7 @@ async function migrateUserRoles() {
         updatedCount++;
       } else {
         // Role doesn't exist, set to null
-        await usersCollection?.updateOne(
+        await usersCollection.updateOne(
           { _id: user._id },
           { $set: { role: null } }
         );
@@ -68,7 +75,7 @@ async function migrateUserRoles() {
     console.log('\nMigration completed!');
     console.log(`✅ Updated users: ${updatedCount}`);
     console.log(`⚠️  Users with null role: ${skippedCount}`);
-    console.log(`📊 Total processed: ${usersWithStringRoles?.length}`);
+    console.log(`📊 Total processed: ${usersWithStringRoles.length}`);
 
   } catch (error) {
     console.error('Migration failed:', error);
@@ -78,9 +85,5 @@ async function migrateUserRoles() {
   }
 }
 
-// Run migration if called directly
-if (require.main === module) {
-  migrateUserRoles();
-}
-
-export { migrateUserRoles };
+// Run migration
+migrateUserRoles();

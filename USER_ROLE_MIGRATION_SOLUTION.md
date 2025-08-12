@@ -32,8 +32,15 @@ This error occurs because:
 ## 🚀 **How to Fix**
 
 ### **Step 1: Run the Migration Script**
+
+**Option A: TypeScript Version (if compilation works)**
 ```bash
 npm run migrate:user-roles
+```
+
+**Option B: JavaScript Version (recommended for immediate use)**
+```bash
+npm run migrate:user-roles:js
 ```
 
 ### **Step 2: Verify Migration**
@@ -133,12 +140,21 @@ async findAll(): Promise<User[]> {
 ## 🔄 **Migration Options**
 
 ### **Option 1: Run Migration Script (Recommended)**
+
+**JavaScript Version (Most Reliable)**
+```bash
+npm run migrate:user-roles:js
+```
+
+**TypeScript Version (If compilation works)**
 ```bash
 npm run migrate:user-roles
 ```
+
 - ✅ Converts existing string roles to ObjectIds
 - ✅ Maintains user-role relationships
 - ✅ One-time fix
+- ✅ No compilation issues
 
 ### **Option 2: Manual Database Update**
 ```javascript
