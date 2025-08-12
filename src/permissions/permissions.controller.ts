@@ -20,8 +20,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { PermissionsService } from './permissions.service';
-import { PermissionGuard } from '../guards/permission.guard';
-import { RequirePermissions } from '../decorators/permissions.decorator';
+
 import { CreatePermissionDto } from './dto/create-permission.dto';
 import { UpdatePermissionDto } from './dto/update-permission.dto';
 import {
@@ -30,6 +29,7 @@ import {
   PermissionsListResponseDto,
   PermissionResponseDto,
 } from './dto/permission-response.dto';
+import { PermissionResponseWrapperDto } from '../common/dto/standard-response.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import {
   ErrorResponseDto,
@@ -42,14 +42,12 @@ import {
 
 @ApiTags('Permissions')
 @Controller('permissions')
-@UseGuards(PermissionGuard)
 @ApiBearerAuth('JWT-auth')
 export class PermissionsController {
   constructor(private readonly permissionsService: PermissionsService) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @RequirePermissions('permissions:create')
   @ApiOperation({ 
     summary: 'Create a new permission',
     description: 'Create a new permission with module and action. Permission names should follow the format "module:action".'
@@ -57,7 +55,7 @@ export class PermissionsController {
   @ApiResponse({
     status: 201,
     description: 'Permission created successfully',
-    type: CreatePermissionResponseDto,
+    type: PermissionResponseWrapperDto,
   })
   @ApiResponse({
     status: 400,
@@ -84,7 +82,6 @@ export class PermissionsController {
   }
 
   @Get()
-  @RequirePermissions('permissions:list')
   @ApiOperation({ 
     summary: 'Get all permissions',
     description: 'Retrieve a paginated list of all permissions. Supports search, sorting, and pagination.'
@@ -97,7 +94,7 @@ export class PermissionsController {
   @ApiResponse({
     status: 200,
     description: 'List of permissions retrieved successfully',
-    type: [PermissionResponseDto],
+    type: PermissionResponseWrapperDto,
   })
   @ApiResponse({
     status: 401,
@@ -114,7 +111,6 @@ export class PermissionsController {
   }
 
   @Get('module/:module')
-  @RequirePermissions('permissions:list')
   @ApiOperation({ 
     summary: 'Get permissions by module',
     description: 'Retrieve all permissions for a specific module.'
@@ -127,7 +123,7 @@ export class PermissionsController {
   @ApiResponse({
     status: 200,
     description: 'List of permissions for the module retrieved successfully',
-    type: [PermissionResponseDto],
+    type: PermissionResponseWrapperDto,
   })
   @ApiResponse({
     status: 400,
@@ -149,7 +145,6 @@ export class PermissionsController {
   }
 
   @Get(':id')
-  @RequirePermissions('permissions:read')
   @ApiOperation({ 
     summary: 'Get permission by ID',
     description: 'Retrieve a specific permission by its ID.'
@@ -162,7 +157,7 @@ export class PermissionsController {
   @ApiResponse({
     status: 200,
     description: 'Permission found successfully',
-    type: PermissionResponseDto,
+    type: PermissionResponseWrapperDto,
   })
   @ApiResponse({
     status: 400,
@@ -189,7 +184,6 @@ export class PermissionsController {
   }
 
   @Patch(':id')
-  @RequirePermissions('permissions:update')
   @ApiOperation({ 
     summary: 'Update permission by ID',
     description: 'Update a specific permission. Cannot update permission name if it conflicts with existing permissions.'
@@ -202,7 +196,7 @@ export class PermissionsController {
   @ApiResponse({
     status: 200,
     description: 'Permission updated successfully',
-    type: UpdatePermissionResponseDto,
+    type: PermissionResponseWrapperDto,
   })
   @ApiResponse({
     status: 400,
@@ -235,7 +229,6 @@ export class PermissionsController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @RequirePermissions('permissions:delete')
   @ApiOperation({ 
     summary: 'Delete permission by ID',
     description: 'Delete a specific permission. Cannot delete permissions that are assigned to roles.'

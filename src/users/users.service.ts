@@ -2,16 +2,31 @@ import { Injectable, NotFoundException, ConflictException } from '@nestjs/common
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from '../models/user.model';
+import { RolesService } from '../roles/roles.service';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class UsersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private rolesService: RolesService,
   ) { }
 
   async create(createUserDto: any): Promise<User> {
-    const { email, password, name, role } = createUserDto;
+    const { 
+      email, 
+      password, 
+      firstname, 
+      lastname, 
+      role, 
+      mobilenumber,
+      addressline1,
+      addressline2,
+      city,
+      state,
+      center,
+      pincode
+    } = createUserDto;
 
     // Check if user already exists
     const existingUser = await this.userModel.findOne({ email });
@@ -22,22 +37,34 @@ export class UsersService {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // If no role is provided, leave it as null (user will have full permissions)
+    // This allows for more flexible permission handling
+    const userRole = role || null;
+
     const user = new this.userModel({
       email,
       password: hashedPassword,
-      name,
-      role: role,
+      firstname,
+      lastname,
+      role: userRole,
+      mobilenumber,
+      addressline1,
+      addressline2,
+      city,
+      state,
+      center,
+      pincode,
     });
 
     return user.save();
   }
 
   async findAll(): Promise<User[]> {
-    return this.userModel.find({}, { password: 0 }).populate('role').exec();
+    return this.userModel.find({}, { password: 0 }).exec();
   }
 
   async findOne(id: string): Promise<User> {
-    const user = await this.userModel.findById(id, { password: 0 }).populate('role').exec();
+    const user = await this.userModel.findById(id, { password:0 }).exec();
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -45,7 +72,7 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<UserDocument | null> {
-    return this.userModel.findOne({ email }).populate('role').exec();
+    return this.userModel.findOne({ email }).exec();
   }
 
   async update(id: string, updateUserDto: any): Promise<User> {
@@ -57,7 +84,6 @@ export class UsersService {
 
     const user = await this.userModel
       .findByIdAndUpdate(id, updateData, { new: true, select: '-password' })
-      .populate('role')
       .exec();
 
     if (!user) {

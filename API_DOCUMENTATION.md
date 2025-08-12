@@ -71,16 +71,148 @@ http://localhost:3000/api
 
 ## User Management Endpoints
 
-### 1. Create User
-**POST** `/users`
+### 1. User Registration (Public)
+**POST** `/users/register`
+
+**Description:** Public endpoint to register a new user. No authentication required.
 
 **Request Body:**
 ```json
 {
-  "name": "John Doe",
+  "firstname": "John",
+  "lastname": "Doe",
   "email": "john@example.com",
   "password": "password123",
-  "role": "user"
+  "mobilenumber": "+1234567890",
+  "role": "64f8a1b2c3d4e5f6a7b8c9d0",
+  "addressline1": "123 Main Street",
+  "addressline2": "Apt 4B",
+  "city": "New York",
+  "state": "NY",
+  "center": "Manhattan",
+  "pincode": "10001"
+}
+```
+
+**Note:** The `role` field is optional. If not provided, the user will be created without a role assignment and will have full permissions to access all endpoints.
+
+**Response:**
+```json
+{
+  "code": 201,
+  "status": "Created",
+  "data": {
+    "_id": "64f8a1b2c3d4e5f6a7b8c9d0",
+    "firstname": "John",
+    "lastname": "Doe",
+    "email": "john@example.com",
+    "role": {
+      "_id": "64f8a1b2c3d4e5f6a7b8c9d0",
+      "name": "user",
+      "displayName": "User",
+      "description": "Regular user role",
+      "isActive": true
+    },
+    "mobilenumber": "+1234567890",
+    "addressline1": "123 Main Street",
+    "addressline2": "Apt 4B",
+    "city": "New York",
+    "state": "NY",
+    "center": "Manhattan",
+    "pincode": "10001",
+    "isActive": true,
+    "createdAt": "2023-09-06T10:30:00.000Z",
+    "updatedAt": "2023-09-06T10:30:00.000Z"
+  },
+  "timestamp": "2023-09-06T10:30:00.000Z",
+  "path": "/users/register"
+}
+```
+
+**cURL Example:**
+```bash
+curl -X POST http://localhost:3000/api/users/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "firstname": "John",
+    "lastname": "Doe",
+    "email": "john@example.com",
+    "password": "password123",
+    "mobilenumber": "+1234567890",
+    "addressline1": "123 Main Street",
+    "city": "New York",
+    "state": "NY",
+    "pincode": "10001"
+  }'
+```
+
+### 2. Get User Profile
+**GET** `/users/profile`
+
+**Description:** Get the current user's profile. Requires authentication token only (no specific permissions required).
+
+**Headers:**
+```
+Authorization: Bearer <your-jwt-token>
+```
+
+**Response:**
+```json
+{
+  "code": 200,
+  "status": "OK",
+  "data": {
+    "_id": "64f8a1b2c3d4e5f6a7b8c9d0",
+    "firstname": "John",
+    "lastname": "Doe",
+    "email": "john@example.com",
+    "role": {
+      "_id": "64f8a1b2c3d4e5f6a7b8c9d0",
+      "name": "user",
+      "displayName": "User",
+      "description": "Basic user with limited access",
+      "isActive": true
+    },
+    "mobilenumber": "+1234567890",
+    "addressline1": "123 Main Street",
+    "city": "New York",
+    "state": "NY",
+    "pincode": "10001",
+    "isActive": true,
+    "createdAt": "2023-09-06T10:30:00.000Z",
+    "updatedAt": "2023-09-06T10:30:00.000Z"
+  },
+  "timestamp": "2023-09-06T10:30:00.000Z",
+  "path": "/users/profile"
+}
+```
+
+**cURL Example:**
+```bash
+curl -X GET http://localhost:3000/api/users/profile \
+  -H "Authorization: Bearer <your-jwt-token>"
+```
+
+### 3. Create User (Protected)
+**POST** `/users`
+
+**Note:** This endpoint requires JWT authentication only. Role and permission checks are handled on the frontend.
+
+**Request Body:**
+```json
+{
+  "firstname": "John",
+  "lastname": "Doe",
+  "email": "john@example.com",
+  "password": "password123",
+  "role": "64f8a1b2c3d4e5f6a7b8c9d0",
+  "mobilenumber": "+1234567890",
+  "addressline1": "123 Main Street",
+  "addressline2": "Apt 4B",
+  "city": "New York",
+  "state": "NY",
+  "center": "Manhattan",
+  "pincode": "10001"
 }
 ```
 
@@ -88,9 +220,22 @@ http://localhost:3000/api
 ```json
 {
   "_id": "64f8a1b2c3d4e5f6a7b8c9d0",
-  "name": "John Doe",
+  "firstname": "John",
+  "lastname": "Doe",
   "email": "john@example.com",
-  "role": "user",
+  "role": {
+    "_id": "64f8a1b2c3d4e5f6a7b8c9d0",
+    "name": "user",
+    "displayName": "User",
+    "description": "Basic user with limited access"
+  },
+  "mobilenumber": "+1234567890",
+  "addressline1": "123 Main Street",
+  "addressline2": "Apt 4B",
+  "city": "New York",
+  "state": "NY",
+  "center": "Manhattan",
+  "pincode": "10001",
   "isActive": true,
   "createdAt": "2023-09-06T10:30:00.000Z",
   "updatedAt": "2023-09-06T10:30:00.000Z"
@@ -100,14 +245,29 @@ http://localhost:3000/api
 ### 2. Get All Users
 **GET** `/users`
 
+**Note:** This endpoint requires JWT authentication only. Role and permission checks are handled on the frontend.
+
 **Response:**
 ```json
 [
   {
     "_id": "64f8a1b2c3d4e5f6a7b8c9d0",
-    "name": "John Doe",
+    "firstname": "John",
+    "lastname": "Doe",
     "email": "john@example.com",
-    "role": "user",
+    "role": {
+      "_id": "64f8a1b2c3d4e5f6a7b8c9d0",
+      "name": "user",
+      "displayName": "User",
+      "description": "Basic user with limited access"
+    },
+    "mobilenumber": "+1234567890",
+    "addressline1": "123 Main Street",
+    "addressline2": "Apt 4B",
+    "city": "New York",
+    "state": "NY",
+    "center": "Manhattan",
+    "pincode": "10001",
     "isActive": true,
     "createdAt": "2023-09-06T10:30:00.000Z",
     "updatedAt": "2023-09-06T10:30:00.000Z"
@@ -118,13 +278,28 @@ http://localhost:3000/api
 ### 3. Get User by ID
 **GET** `/users/:id`
 
+**Note:** This endpoint requires JWT authentication only. Role and permission checks are handled on the frontend.
+
 **Response:**
 ```json
 {
   "_id": "64f8a1b2c3d4e5f6a7b8c9d0",
-  "name": "John Doe",
+  "firstname": "John",
+  "lastname": "Doe",
   "email": "john@example.com",
-  "role": "user",
+  "role": {
+    "_id": "64f8a1b2c3d4e5f6a7b8c9d0",
+    "name": "user",
+    "displayName": "User",
+    "description": "Basic user with limited access"
+  },
+  "mobilenumber": "+1234567890",
+  "addressline1": "123 Main Street",
+  "addressline2": "Apt 4B",
+  "city": "New York",
+  "state": "NY",
+  "center": "Manhattan",
+  "pincode": "10001",
   "isActive": true,
   "createdAt": "2023-09-06T10:30:00.000Z",
   "updatedAt": "2023-09-06T10:30:00.000Z"
@@ -134,11 +309,14 @@ http://localhost:3000/api
 ### 4. Update User
 **PATCH** `/users/:id`
 
+**Note:** This endpoint requires JWT authentication only. Role and permission checks are handled on the frontend.
+
 **Request Body:**
 ```json
 {
-  "name": "John Smith",
-  "role": "admin"
+  "firstname": "John",
+  "lastname": "Smith",
+  "role": "64f8a1b2c3d4e5f6a7b8c9d0"
 }
 ```
 
@@ -146,9 +324,22 @@ http://localhost:3000/api
 ```json
 {
   "_id": "64f8a1b2c3d4e5f6a7b8c9d0",
-  "name": "John Smith",
+  "firstname": "John",
+  "lastname": "Smith",
   "email": "john@example.com",
-  "role": "admin",
+  "role": {
+    "_id": "64f8a1b2c3d4e5f6a7b8c9d0",
+    "name": "admin",
+    "displayName": "Administrator",
+    "description": "Administrator role"
+  },
+  "mobilenumber": "+1234567890",
+  "addressline1": "123 Main Street",
+  "addressline2": "Apt 4B",
+  "city": "New York",
+  "state": "NY",
+  "center": "Manhattan",
+  "pincode": "10001",
   "isActive": true,
   "createdAt": "2023-09-06T10:30:00.000Z",
   "updatedAt": "2023-09-06T10:35:00.000Z"
@@ -157,6 +348,8 @@ http://localhost:3000/api
 
 ### 5. Delete User
 **DELETE** `/users/:id`
+
+**Note:** This endpoint requires JWT authentication only. Role and permission checks are handled on the frontend.
 
 **Response:** `204 No Content`
 
@@ -215,11 +408,17 @@ curl -X POST http://localhost:3000/api/auth/login \
   -d '{"email": "user@example.com", "password": "password123"}'
 ```
 
+### Get Profile
+```bash
+curl -X GET http://localhost:3000/api/users/profile \
+  -H "Authorization: Bearer <your-jwt-token>"
+```
+
 ### Create User
 ```bash
 curl -X POST http://localhost:3000/api/users \
   -H "Content-Type: application/json" \
-  -d '{"name": "John Doe", "email": "john@example.com", "password": "password123"}'
+  -d '{"firstname": "John", "lastname": "Doe", "email": "john@example.com", "password": "password123", "role": "64f8a1b2c3d4e5f6a7b8c9d0", "mobilenumber": "+1234567890", "addressline1": "123 Main Street", "city": "New York", "state": "NY", "pincode": "10001"}'
 ```
 
 ### Get All Users
@@ -231,7 +430,7 @@ curl -X GET http://localhost:3000/api/users
 ```bash
 curl -X PATCH http://localhost:3000/api/users/64f8a1b2c3d4e5f6a7b8c9d0 \
   -H "Content-Type: application/json" \
-  -d '{"name": "John Smith"}'
+  -d '{"firstname": "John", "lastname": "Smith", "role": "64f8a1b2c3d4e5f6a7b8c9d0"}'
 ```
 
 ### Delete User

@@ -8,10 +8,16 @@ export class UserResponseDto {
   _id: string;
 
   @ApiProperty({
-    description: 'Full name of the user',
-    example: 'John Doe',
+    description: 'First name of the user',
+    example: 'John',
   })
-  name: string;
+  firstname: string;
+
+  @ApiProperty({
+    description: 'Last name of the user',
+    example: 'Doe',
+  })
+  lastname: string;
 
   @ApiProperty({
     description: 'Email address of the user',
@@ -20,11 +26,64 @@ export class UserResponseDto {
   email: string;
 
   @ApiProperty({
-    description: 'Role of the user',
-    example: 'user',
-    enum: ['user', 'admin', 'manager'],
+    description: 'Role of the user (can be role ID or populated role object)',
+    example: {
+      _id: '64f8a1b2c3d4e5f6a7b8c9d0',
+      name: 'user',
+      displayName: 'User',
+      description: 'Basic user with limited access',
+      isActive: true
+    },
   })
-  role: string;
+  role: any;
+
+  @ApiProperty({
+    description: 'Mobile number of the user',
+    example: '+1234567890',
+  })
+  mobilenumber: string;
+
+  @ApiProperty({
+    description: 'First line of address',
+    example: '123 Main Street',
+    required: false,
+  })
+  addressline1?: string;
+
+  @ApiProperty({
+    description: 'Second line of address',
+    example: 'Apt 4B',
+    required: false,
+  })
+  addressline2?: string;
+
+  @ApiProperty({
+    description: 'City name',
+    example: 'New York',
+    required: false,
+  })
+  city?: string;
+
+  @ApiProperty({
+    description: 'State or province',
+    example: 'NY',
+    required: false,
+  })
+  state?: string;
+
+  @ApiProperty({
+    description: 'Center or district',
+    example: 'Manhattan',
+    required: false,
+  })
+  center?: string;
+
+  @ApiProperty({
+    description: 'Postal/ZIP code',
+    example: '10001',
+    required: false,
+  })
+  pincode?: string;
 
   @ApiProperty({
     description: 'Whether the user account is active',

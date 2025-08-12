@@ -1,7 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEmail, IsString, IsOptional, MinLength, IsEnum, IsMobilePhone } from 'class-validator';
+import { IsEmail, IsString, IsOptional, MinLength, IsMongoId, IsMobilePhone } from 'class-validator';
 
-export class CreateUserDto {
+export class RegisterUserDto {
   @ApiProperty({
     description: 'First name of the user',
     example: 'John',
@@ -32,20 +32,20 @@ export class CreateUserDto {
   @MinLength(6)
   readonly password: string;
 
-  @ApiPropertyOptional({
-    description: 'Role ID for the user (optional)',
-    example: '64f8a1b2c3d4e5f6a7b8c9d0',
-  })
-  @IsOptional()
-  @IsString()
-  readonly role?: string;
-
   @ApiProperty({
     description: 'Mobile number of the user',
     example: '+1234567890',
   })
   @IsMobilePhone()
   readonly mobilenumber: string;
+
+  @ApiPropertyOptional({
+    description: 'Role ID for the user (optional)',
+    example: '64f8a1b2c3d4e5f6a7b8c9d0',
+  })
+  @IsOptional()
+  @IsMongoId()
+  readonly role?: string;
 
   @ApiPropertyOptional({
     description: 'First line of address',
@@ -94,4 +94,4 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   readonly pincode?: string;
-} 
+}

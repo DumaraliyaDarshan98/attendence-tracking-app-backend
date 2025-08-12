@@ -13,6 +13,7 @@ import {
   SendOtpResponseDto,
   ResetPasswordResponseDto,
 } from './dto/auth-response.dto';
+import { AuthResponseWrapperDto } from '../common/dto/standard-response.dto';
 import {
   ValidationErrorResponseDto,
   NotFoundErrorResponseDto,
@@ -33,7 +34,7 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Login successful',
-    type: LoginResponseDto,
+    type: AuthResponseWrapperDto,
   })
   @ApiResponse({
     status: 400,
@@ -62,7 +63,7 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'OTP sent successfully',
-    type: SendOtpResponseDto,
+    type: AuthResponseWrapperDto,
   })
   @ApiResponse({
     status: 400,
@@ -91,7 +92,7 @@ export class AuthController {
   @ApiResponse({
     status: 200,
     description: 'Password reset successfully',
-    type: ResetPasswordResponseDto,
+    type: AuthResponseWrapperDto,
   })
   @ApiResponse({
     status: 400,

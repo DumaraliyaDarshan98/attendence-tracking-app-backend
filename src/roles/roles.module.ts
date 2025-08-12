@@ -4,7 +4,7 @@ import { RolesService } from './roles.service';
 import { RolesController } from './roles.controller';
 import { Role, RoleSchema } from '../models/role.model';
 import { Permission, PermissionSchema } from '../models/permission.model';
-import { PermissionGuard } from '../guards/permission.guard';
+
 import { JwtModule } from '@nestjs/jwt';
 import { UsersModule } from '../users/users.module';
 import { appConfig } from '../config/app.config';
@@ -22,7 +22,7 @@ import { appConfig } from '../config/app.config';
     forwardRef(() => UsersModule),
   ],
   controllers: [RolesController],
-  providers: [RolesService, PermissionGuard],
+  providers: [RolesService],
   exports: [RolesService],
 })
 export class RolesModule {} 

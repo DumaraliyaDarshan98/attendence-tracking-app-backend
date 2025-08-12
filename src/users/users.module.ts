@@ -3,7 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { UsersService } from './users.service';
 import { UsersController } from './users.controller';
 import { User, UserSchema } from '../models/user.model';
-import { PermissionGuard } from '../guards/permission.guard';
+import { AuthGuard } from '../guards/auth.guard';
 import { JwtModule } from '@nestjs/jwt';
 import { appConfig } from '../config/app.config';
 import { RolesModule } from '../roles/roles.module';
@@ -18,7 +18,7 @@ import { RolesModule } from '../roles/roles.module';
     forwardRef(() => RolesModule),
   ],
   controllers: [UsersController],
-  providers: [UsersService, PermissionGuard],
+  providers: [UsersService, AuthGuard],
   exports: [UsersService],
 })
 export class UsersModule {} 

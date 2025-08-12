@@ -3,6 +3,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { AppModule } from './app.module';
 import { appConfig } from './config/app.config';
 import { setupSwagger } from './config/swagger.config';
+import { ResponseInterceptor } from './common/interceptors';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -16,6 +17,9 @@ async function bootstrap() {
     forbidNonWhitelisted: true,
     transform: true,
   }));
+  
+  // Global response interceptor
+  app.useGlobalInterceptors(new ResponseInterceptor());
   
   // Global prefix
   app.setGlobalPrefix('api');

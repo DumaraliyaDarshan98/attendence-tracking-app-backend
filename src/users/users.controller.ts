@@ -10,6 +10,7 @@ import {
   HttpStatus,
   UseGuards,
   Query,
+  Request,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -21,6 +22,7 @@ import {
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
+import { RegisterUserDto } from './dto/register-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import {
   UserResponseDto,
@@ -28,8 +30,8 @@ import {
   UpdateUserResponseDto,
   UsersListResponseDto,
 } from './dto/user-response.dto';
-import { PermissionGuard } from '../guards/permission.guard';
-import { RequirePermissions } from '../decorators/permissions.decorator';
+import { AuthGuard } from '../guards/auth.guard';
+
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import {
   ErrorResponseDto,
@@ -39,17 +41,66 @@ import {
   ForbiddenErrorResponseDto,
   ConflictErrorResponseDto,
 } from '../common/dto/error-response.dto';
+import {
+  UserResponseWrapperDto,
+  UsersListResponseWrapperDto,
+} from '../common/dto/standard-response.dto';
 
 @ApiTags('Users')
 @Controller('users')
-@UseGuards(PermissionGuard)
-@ApiBearerAuth('JWT-auth')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Post()
+  @Post('register')
   @HttpCode(HttpStatus.CREATED)
-  @RequirePermissions('users:create')
+  @ApiOperation({ 
+    summary: 'Register a new user',
+    description: 'Public endpoint to register a new user. No authentication required. Password will be hashed before storage.'
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'User registered successfully',
+    type: UserResponseWrapperDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad Request - Validation error',
+    type: ValidationErrorResponseDto,
+  })
+  @ApiResponse({
+    status: 409,
+    description: 'Conflict - User with this email already exists',
+    type: ConflictErrorResponseDto,
+  })
+  register(@Body() registerUserDto: RegisterUserDto) {
+    return this.usersService.create(registerUserDto);
+  }
+
+  @Get('profile')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ 
+    summary: 'Get user profile',
+    description: 'Get the current user profile. Requires authentication token only (no specific permissions required).'
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User profile retrieved successfully',
+    type: UserResponseWrapperDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Invalid or missing token',
+    type: UnauthorizedErrorResponseDto,
+  })
+  getProfile(@Request() req) {
+    return req.user;
+  }
+
+  @Post()
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ 
     summary: 'Create a new user',
     description: 'Create a new user with specified role. Password will be hashed before storage.'
@@ -57,7 +108,7 @@ export class UsersController {
   @ApiResponse({
     status: 201,
     description: 'User created successfully',
-    type: CreateUserResponseDto,
+    type: UserResponseWrapperDto,
   })
   @ApiResponse({
     status: 400,
@@ -84,7 +135,8 @@ export class UsersController {
   }
 
   @Get()
-  @RequirePermissions('users:list')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: 'Get all users',
     description: 'Retrieve a paginated list of all users with their roles. Supports search, sorting, and pagination.'
@@ -97,7 +149,7 @@ export class UsersController {
   @ApiResponse({
     status: 200,
     description: 'List of users retrieved successfully',
-    type: [UserResponseDto],
+    type: UsersListResponseWrapperDto,
   })
   @ApiResponse({
     status: 401,
@@ -114,7 +166,8 @@ export class UsersController {
   }
 
   @Get(':id')
-  @RequirePermissions('users:read')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: 'Get user by ID',
     description: 'Retrieve a specific user by their ID with their role information.'
@@ -127,7 +180,7 @@ export class UsersController {
   @ApiResponse({
     status: 200,
     description: 'User found successfully',
-    type: UserResponseDto,
+    type: UserResponseWrapperDto,
   })
   @ApiResponse({
     status: 400,
@@ -154,7 +207,8 @@ export class UsersController {
   }
 
   @Patch(':id')
-  @RequirePermissions('users:update')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ 
     summary: 'Update user by ID',
     description: 'Update a specific user. Password will be hashed if provided.'
@@ -167,7 +221,7 @@ export class UsersController {
   @ApiResponse({
     status: 200,
     description: 'User updated successfully',
-    type: UpdateUserResponseDto,
+    type: UserResponseWrapperDto,
   })
   @ApiResponse({
     status: 400,
@@ -199,8 +253,9 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @RequirePermissions('users:delete')
   @ApiOperation({ 
     summary: 'Delete user by ID',
     description: 'Delete a specific user. Cannot delete users with super admin roles.'

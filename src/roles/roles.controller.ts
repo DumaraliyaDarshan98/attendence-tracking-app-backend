@@ -20,8 +20,7 @@ import {
   ApiQuery,
 } from '@nestjs/swagger';
 import { RolesService } from './roles.service';
-import { PermissionGuard } from '../guards/permission.guard';
-import { RequirePermissions } from '../decorators/permissions.decorator';
+
 import { CreateRoleDto } from './dto/create-role.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
 import { AssignPermissionsDto } from './dto/assign-permissions.dto';
@@ -31,6 +30,7 @@ import {
   RolesListResponseDto,
   RoleResponseDto,
 } from './dto/role-response.dto';
+import { RoleResponseWrapperDto } from '../common/dto/standard-response.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import {
   ErrorResponseDto,
@@ -43,14 +43,12 @@ import {
 
 @ApiTags('Roles')
 @Controller('roles')
-@UseGuards(PermissionGuard)
 @ApiBearerAuth('JWT-auth')
 export class RolesController {
   constructor(private readonly rolesService: RolesService) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  @RequirePermissions('roles:create')
   @ApiOperation({ 
     summary: 'Create a new role',
     description: 'Create a new role with specified permissions. Only super admins can create roles with super admin privileges.'
@@ -58,7 +56,7 @@ export class RolesController {
   @ApiResponse({
     status: 201,
     description: 'Role created successfully',
-    type: CreateRoleResponseDto,
+    type: RoleResponseWrapperDto,
   })
   @ApiResponse({
     status: 400,
@@ -85,7 +83,6 @@ export class RolesController {
   }
 
   @Get()
-  @RequirePermissions('roles:list')
   @ApiOperation({ 
     summary: 'Get all roles',
     description: 'Retrieve a paginated list of all roles with their permissions. Supports search, sorting, and pagination.'
@@ -98,7 +95,7 @@ export class RolesController {
   @ApiResponse({
     status: 200,
     description: 'List of roles retrieved successfully',
-    type: [RoleResponseDto],
+    type: RoleResponseWrapperDto,
   })
   @ApiResponse({
     status: 401,
@@ -115,7 +112,6 @@ export class RolesController {
   }
 
   @Get(':id')
-  @RequirePermissions('roles:read')
   @ApiOperation({ 
     summary: 'Get role by ID',
     description: 'Retrieve a specific role by its ID with all assigned permissions.'
@@ -128,7 +124,7 @@ export class RolesController {
   @ApiResponse({
     status: 200,
     description: 'Role found successfully',
-    type: RoleResponseDto,
+    type: RoleResponseWrapperDto,
   })
   @ApiResponse({
     status: 400,
@@ -155,7 +151,6 @@ export class RolesController {
   }
 
   @Patch(':id')
-  @RequirePermissions('roles:update')
   @ApiOperation({ 
     summary: 'Update role by ID',
     description: 'Update a specific role. Cannot update super admin privileges unless you are a super admin.'
@@ -168,7 +163,7 @@ export class RolesController {
   @ApiResponse({
     status: 200,
     description: 'Role updated successfully',
-    type: UpdateRoleResponseDto,
+    type: RoleResponseWrapperDto,
   })
   @ApiResponse({
     status: 400,
@@ -201,7 +196,6 @@ export class RolesController {
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @RequirePermissions('roles:delete')
   @ApiOperation({ 
     summary: 'Delete role by ID',
     description: 'Delete a specific role. Cannot delete roles that are assigned to users or super admin roles.'
@@ -245,7 +239,6 @@ export class RolesController {
   }
 
   @Post(':id/permissions')
-  @RequirePermissions('roles:update')
   @ApiOperation({ 
     summary: 'Assign permissions to role',
     description: 'Assign specific permissions to a role. This will replace all existing permissions for the role.'
@@ -258,7 +251,7 @@ export class RolesController {
   @ApiResponse({
     status: 200,
     description: 'Permissions assigned successfully',
-    type: RoleResponseDto,
+    type: RoleResponseWrapperDto,
   })
   @ApiResponse({
     status: 400,

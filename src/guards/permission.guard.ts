@@ -38,6 +38,14 @@ export class PermissionGuard implements CanActivate {
                 throw new ForbiddenException('User not found');
             }
 
+            // Check if user has a role
+            if (!user.role) {
+                // If no role exists, give full permissions (bypass permission checks)
+                console.log(`User ${user.email} has no role assigned - granting full permissions`);
+                request.user = user;
+                return true;
+            }
+
             // Check each required permission
             for (const permission of requiredPermissions) {
                 const [module, action] = permission.split(':');

@@ -13,7 +13,12 @@ export class LoginResponseDto {
       id: '64f8a1b2c3d4e5f6a7b8c9d0',
       email: 'john.doe@example.com',
       name: 'John Doe',
-      role: 'user',
+              role: {
+          _id: '64f8a1b2c3d4e5f6a7b8c9d0',
+          name: 'user',
+          displayName: 'User',
+          description: 'Basic user with limited access'
+        },
     },
   })
   user: {
