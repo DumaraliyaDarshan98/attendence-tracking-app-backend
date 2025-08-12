@@ -9,6 +9,7 @@ export function setupSwagger(app: INestApplication) {
     .addTag('Authentication', 'User authentication and authorization endpoints')
     .addTag('Users', 'User management CRUD operations')
     .addTag('Attendance', 'Attendance tracking and management')
+    .addTag('Leave Management', 'Holiday and leave request management')
     .addBearerAuth(
       {
         type: 'http',
