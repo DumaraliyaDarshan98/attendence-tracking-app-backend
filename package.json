@@ -23,7 +23,9 @@
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "migrate:user-roles": "ts-node src/scripts/migrate-user-roles.ts",
-    "migrate:user-roles:js": "node migrate-user-roles.js"
+    "migrate:user-roles:js": "node migrate-user-roles.js",
+    "migrate:attendance-indexes": "ts-node src/scripts/migrate-attendance-indexes.ts",
+    "migrate:attendance-indexes:js": "node migrate-attendance-indexes.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.20",
