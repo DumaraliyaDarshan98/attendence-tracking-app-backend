@@ -8,10 +8,11 @@ import { RolesModule } from './roles/roles.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { AttendanceModule } from './attendance/attendance.module';
 import { LeaveManagementModule } from './leave-management/leave-management.module';
+import { TourManagementModule } from './tour-management/tour-management.module';
 import { SeederService } from './database/seeder.service';
 
 @Module({
-  imports: [DatabaseModule, UsersModule, AuthModule, RolesModule, PermissionsModule, AttendanceModule, LeaveManagementModule],
+  imports: [DatabaseModule, UsersModule, AuthModule, RolesModule, PermissionsModule, AttendanceModule, LeaveManagementModule, TourManagementModule],
   controllers: [AppController],
   providers: [AppService, SeederService],
 })
