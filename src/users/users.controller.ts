@@ -9,8 +9,6 @@ import { AuthGuard } from '../guards/auth.guard';
 
 @ApiTags('Users')
 @Controller('users')
-@UseGuards(AuthGuard)
-@ApiBearerAuth('JWT-auth')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
@@ -93,6 +91,8 @@ export class UsersController {
   }
 
   @Get('profile')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get current user profile' })
   @ApiResponse({ 
     status: 200, 
@@ -149,6 +149,8 @@ export class UsersController {
   }
 
   @Post()
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Create a new user (Protected endpoint)' })
   @ApiBody({
     description: 'User creation data',
@@ -211,6 +213,8 @@ export class UsersController {
   }
 
   @Get()
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get all users (Protected endpoint)' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number', example: 1 })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page', example: 10 })
@@ -276,6 +280,8 @@ export class UsersController {
   }
 
   @Get(':id')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get user by ID (Protected endpoint)' })
   @ApiParam({ name: 'id', description: 'User ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
   @ApiResponse({ 
@@ -317,6 +323,8 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Update user (Protected endpoint)' })
   @ApiParam({ name: 'id', description: 'User ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
   @ApiBody({
@@ -380,6 +388,8 @@ export class UsersController {
   }
 
   @Delete(':id')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Delete user (Protected endpoint)' })
   @ApiParam({ name: 'id', description: 'User ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
   @ApiResponse({ status: 204, description: 'User deleted successfully' })
