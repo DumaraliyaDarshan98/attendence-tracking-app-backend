@@ -22,7 +22,7 @@ export class TourStatusHistory {
 }
 
 @Schema({ timestamps: true })
-export class TourDocument {
+export class TourDocumentModel {
   @Prop({ type: String })
   fileName: string;
 
@@ -53,8 +53,8 @@ export class Tour {
   @Prop({ required: true })
   expectedTime: Date; // Expected time for the visit
 
-  @Prop({ type: [TourDocument], default: [] })
-  documents: TourDocument[]; // Multiple documents
+  @Prop({ type: [TourDocumentModel], default: [] })
+  documents: TourDocumentModel[]; // Multiple documents
 
   @Prop()
   userNotes?: string; // Notes from the user

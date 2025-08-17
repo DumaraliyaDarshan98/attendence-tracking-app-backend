@@ -10,6 +10,8 @@ export function setupSwagger(app: INestApplication) {
     .addTag('Users', 'User management CRUD operations')
     .addTag('Attendance', 'Attendance tracking and management')
     .addTag('Leave Management', 'Holiday and leave request management')
+    .addTag('Tour Management', 'Site visit and tour management')
+    .addTag('Document Upload', 'Document upload and management')
     .addBearerAuth(
       {
         type: 'http',

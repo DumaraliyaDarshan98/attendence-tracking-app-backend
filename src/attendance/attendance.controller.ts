@@ -220,13 +220,15 @@ export class AttendanceController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getAttendanceByDate(@Request() req: any, @Param('date') date: string) {
     const attendance = await this.attendanceService.getAttendanceByDate(req.user._id, date);
-    return {
-      code: 200,
-      status: 'OK',
-      data: attendance,
-      timestamp: new Date().toISOString(),
-      path: `/api/attendance/date/${date}`
-    };
+    return attendance;
+    console.log("attendance", attendance)
+    // return {
+    //   code: 200,
+    //   status: 'OK',
+    //   data: attendance,
+    //   timestamp: new Date().toISOString(),
+    //   path: `/api/attendance/date/${date}`
+    // };
   }
 
   @Get('range')

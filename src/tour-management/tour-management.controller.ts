@@ -87,8 +87,8 @@ export class TourManagementController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
   ) {
-    const page = parseInt(query.page?.toString()) || 1;
-    const limit = parseInt(query.limit?.toString()) || 10;
+    const page = query.page ? parseInt(query.page.toString()) : 1;
+    const limit = query.limit ? parseInt(query.limit.toString()) : 10;
 
     const filters = {
       status,
@@ -123,8 +123,8 @@ export class TourManagementController {
     @Query() query: PaginationQueryDto,
     @Request() req: any,
   ) {
-    const page = parseInt(query.page?.toString()) || 1;
-    const limit = parseInt(query.limit?.toString()) || 10;
+    const page = query.page ? parseInt(query.page.toString()) : 1;
+    const limit = query.limit ? parseInt(query.limit.toString()) : 10;
 
     const result = await this.tourManagementService.findByUser(req.user._id, page, limit);
     

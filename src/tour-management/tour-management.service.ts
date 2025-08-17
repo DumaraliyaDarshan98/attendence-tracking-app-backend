@@ -8,7 +8,7 @@ import { CreateTourDto, UpdateTourDto, UpdateTourStatusDto } from './dto';
 export class TourManagementService {
   constructor(
     @InjectModel(Tour.name) private tourModel: Model<TourDocument>,
-  ) {}
+  ) { }
 
   async create(createTourDto: CreateTourDto, createdBy: string): Promise<Tour> {
     const tour = new this.tourModel({
@@ -41,22 +41,22 @@ export class TourManagementService {
     } = {}
   ): Promise<{ data: Tour[]; total: number; page: number; limit: number; totalPages: number }> {
     const skip = (page - 1) * limit;
-    
+
     // Build filter query
     const filterQuery: any = { isActive: true };
-    
+
     if (filters.status) {
       filterQuery.status = filters.status;
     }
-    
+
     if (filters.assignedTo) {
       filterQuery.assignedTo = new Types.ObjectId(filters.assignedTo);
     }
-    
+
     if (filters.createdBy) {
       filterQuery.createdBy = new Types.ObjectId(filters.createdBy);
     }
-    
+
     if (filters.startDate || filters.endDate) {
       filterQuery.expectedTime = {};
       if (filters.startDate) {
@@ -104,10 +104,10 @@ export class TourManagementService {
 
   async findByUser(userId: string, page: number = 1, limit: number = 10): Promise<{ data: Tour[]; total: number; page: number; limit: number; totalPages: number }> {
     const skip = (page - 1) * limit;
-    
-    const filterQuery = { 
+
+    const filterQuery = {
       assignedTo: new Types.ObjectId(userId),
-      isActive: true 
+      isActive: true
     };
 
     const [tours, total] = await Promise.all([
@@ -131,9 +131,9 @@ export class TourManagementService {
     };
   }
 
-  async update(id: string, updateTourDto: UpdateTourDto): Promise<Tour> {
+  async update(id: string, updateTourDto: any): Promise<Tour> {
     const tour = await this.tourModel.findById(id);
-    
+
     if (!tour) {
       throw new NotFoundException('Tour not found');
     }
@@ -142,12 +142,12 @@ export class TourManagementService {
     if (updateTourDto.assignedTo) {
       updateTourDto.assignedTo = new Types.ObjectId(updateTourDto.assignedTo);
     }
-    
+
     if (updateTourDto.expectedTime) {
       updateTourDto.expectedTime = new Date(updateTourDto.expectedTime);
     }
 
-    const updatedTour = await this.tourModel
+    const updatedTour: any = await this.tourModel
       .findByIdAndUpdate(id, updateTourDto, { new: true })
       .populate('assignedTo', 'firstname lastname email')
       .populate('createdBy', 'firstname lastname email')
@@ -158,7 +158,7 @@ export class TourManagementService {
 
   async updateStatus(id: string, updateStatusDto: UpdateTourStatusDto, changedBy: string, changedByName: string): Promise<Tour> {
     const tour = await this.tourModel.findById(id);
-    
+
     if (!tour) {
       throw new NotFoundException('Tour not found');
     }
@@ -190,7 +190,7 @@ export class TourManagementService {
     }
 
     // Update tour with new status and history
-    const updatedTour = await this.tourModel
+    const updatedTour: any = await this.tourModel
       .findByIdAndUpdate(
         id,
         {
@@ -226,7 +226,7 @@ export class TourManagementService {
 
   async remove(id: string): Promise<void> {
     const tour = await this.tourModel.findById(id);
-    
+
     if (!tour) {
       throw new NotFoundException('Tour not found');
     }
@@ -237,7 +237,7 @@ export class TourManagementService {
 
   async getStatusHistory(id: string): Promise<any[]> {
     const tour = await this.tourModel.findById(id);
-    
+
     if (!tour) {
       throw new NotFoundException('Tour not found');
     }
