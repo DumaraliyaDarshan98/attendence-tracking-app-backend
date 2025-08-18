@@ -31,6 +31,20 @@ export class Attendance {
 
   @Prop({ default: 1 })
   sessionNumber: number; // Track multiple sessions per day
+
+  // Location tracking for check-in
+  @Prop({ type: Number, required: false })
+  checkInLatitude?: number;
+
+  @Prop({ type: Number, required: false })
+  checkInLongitude?: number;
+
+  // Location tracking for check-out
+  @Prop({ type: Number, required: false })
+  checkOutLatitude?: number;
+
+  @Prop({ type: Number, required: false })
+  checkOutLongitude?: number;
 }
 
 export const AttendanceSchema = SchemaFactory.createForClass(Attendance);

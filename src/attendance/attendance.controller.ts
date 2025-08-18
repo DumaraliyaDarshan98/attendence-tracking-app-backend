@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Put, Query, Param, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Put, Query, Param, Request, UseGuards, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '../guards/auth.guard';
 import { AttendanceService } from './attendance.service';
+import { CheckInDto, CheckOutDto } from './dto';
 
 @ApiTags('Attendance')
 @Controller('attendance')
@@ -30,6 +31,8 @@ export class AttendanceController {
             isCheckedOut: { type: 'boolean', example: false },
             status: { type: 'string', example: 'present' },
             sessionNumber: { type: 'number', example: 1 },
+            checkInLatitude: { type: 'number', example: 40.7128 },
+            checkInLongitude: { type: 'number', example: -74.0060 },
             createdAt: { type: 'string', format: 'date-time' },
             updatedAt: { type: 'string', format: 'date-time' }
           }
@@ -41,8 +44,11 @@ export class AttendanceController {
   })
   @ApiResponse({ status: 409, description: 'Already checked in today' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async checkIn(@Request() req: any) {
-    const attendance = await this.attendanceService.checkIn(req.user._id);
+  async checkIn(@Request() req: any, @Body() checkInDto: CheckInDto) {
+    const attendance = await this.attendanceService.checkIn(req.user._id, {
+      latitude: checkInDto.latitude,
+      longitude: checkInDto.longitude,
+    });
     return {
       code: 201,
       status: 'Created',
@@ -72,6 +78,8 @@ export class AttendanceController {
             isCheckedOut: { type: 'boolean', example: false },
             status: { type: 'string', example: 'present' },
             sessionNumber: { type: 'number', example: 2 },
+            checkInLatitude: { type: 'number', example: 40.7128 },
+            checkInLongitude: { type: 'number', example: -74.0060 },
             createdAt: { type: 'string', format: 'date-time' },
             updatedAt: { type: 'string', format: 'date-time' }
           }
@@ -83,8 +91,11 @@ export class AttendanceController {
   })
   @ApiResponse({ status: 400, description: 'No previous session found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async startNewSession(@Request() req: any) {
-    const attendance = await this.attendanceService.startNewSession(req.user._id);
+  async startNewSession(@Request() req: any, @Body() checkInDto: CheckInDto) {
+    const attendance = await this.attendanceService.startNewSession(req.user._id, {
+      latitude: checkInDto.latitude,
+      longitude: checkInDto.longitude,
+    });
     return {
       code: 201,
       status: 'Created',
@@ -116,6 +127,10 @@ export class AttendanceController {
             totalHours: { type: 'number', example: 8 },
             status: { type: 'string', example: 'present' },
             sessionNumber: { type: 'number', example: 1 },
+            checkInLatitude: { type: 'number', example: 40.7128 },
+            checkInLongitude: { type: 'number', example: -74.0060 },
+            checkOutLatitude: { type: 'number', example: 40.7128 },
+            checkOutLongitude: { type: 'number', example: -74.0060 },
             createdAt: { type: 'string', format: 'date-time' },
             updatedAt: { type: 'string', format: 'date-time' }
           }
@@ -128,8 +143,11 @@ export class AttendanceController {
   @ApiResponse({ status: 404, description: 'No active session found' })
   @ApiResponse({ status: 409, description: 'Already checked out' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async checkOut(@Request() req: any) {
-    const attendance = await this.attendanceService.checkOut(req.user._id);
+  async checkOut(@Request() req: any, @Body() checkOutDto: CheckOutDto) {
+    const attendance = await this.attendanceService.checkOut(req.user._id, {
+      latitude: checkOutDto.latitude,
+      longitude: checkOutDto.longitude,
+    });
     return {
       code: 200,
       status: 'OK',
@@ -140,10 +158,10 @@ export class AttendanceController {
   }
 
   @Get('today')
-  @ApiOperation({ summary: 'Get today\'s attendance records for current user' })
+  @ApiOperation({ summary: 'Get today\'s attendance records' })
   @ApiResponse({ 
     status: 200, 
-    description: 'Today\'s attendance retrieved successfully',
+    description: 'Today\'s attendance records retrieved successfully',
     schema: {
       type: 'object',
       properties: {
@@ -162,7 +180,11 @@ export class AttendanceController {
               isCheckedOut: { type: 'boolean', example: true },
               totalHours: { type: 'number', example: 8 },
               status: { type: 'string', example: 'present' },
-              sessionNumber: { type: 'number', example: 1 }
+              sessionNumber: { type: 'number', example: 1 },
+              checkInLatitude: { type: 'number', example: 40.7128 },
+              checkInLongitude: { type: 'number', example: -74.0060 },
+              checkOutLatitude: { type: 'number', example: 40.7128 },
+              checkOutLongitude: { type: 'number', example: -74.0060 }
             }
           }
         },
@@ -207,7 +229,11 @@ export class AttendanceController {
               isCheckedOut: { type: 'boolean', example: true },
               totalHours: { type: 'number', example: 8 },
               status: { type: 'string', example: 'present' },
-              sessionNumber: { type: 'number', example: 1 }
+              sessionNumber: { type: 'number', example: 1 },
+              checkInLatitude: { type: 'number', example: 40.7128 },
+              checkInLongitude: { type: 'number', example: -74.0060 },
+              checkOutLatitude: { type: 'number', example: 40.7128 },
+              checkOutLongitude: { type: 'number', example: -74.0060 }
             }
           }
         },
@@ -256,7 +282,11 @@ export class AttendanceController {
               isCheckedOut: { type: 'boolean', example: true },
               totalHours: { type: 'number', example: 8 },
               status: { type: 'string', example: 'present' },
-              sessionNumber: { type: 'number', example: 1 }
+              sessionNumber: { type: 'number', example: 1 },
+              checkInLatitude: { type: 'number', example: 40.7128 },
+              checkInLongitude: { type: 'number', example: -74.0060 },
+              checkOutLatitude: { type: 'number', example: 40.7128 },
+              checkOutLongitude: { type: 'number', example: -74.0060 }
             }
           }
         },
@@ -305,7 +335,11 @@ export class AttendanceController {
               isCheckedOut: { type: 'boolean', example: true },
               totalHours: { type: 'number', example: 8 },
               status: { type: 'string', example: 'present' },
-              sessionNumber: { type: 'number', example: 1 }
+              sessionNumber: { type: 'number', example: 1 },
+              checkInLatitude: { type: 'number', example: 40.7128 },
+              checkInLongitude: { type: 'number', example: -74.0060 },
+              checkOutLatitude: { type: 'number', example: 40.7128 },
+              checkOutLongitude: { type: 'number', example: -74.0060 }
             }
           }
         },
@@ -354,6 +388,10 @@ export class AttendanceController {
               totalHours: { type: 'number', example: 8 },
               status: { type: 'string', example: 'present' },
               sessionNumber: { type: 'number', example: 1 },
+              checkInLatitude: { type: 'number', example: 40.7128 },
+              checkInLongitude: { type: 'number', example: -74.0060 },
+              checkOutLatitude: { type: 'number', example: 40.7128 },
+              checkOutLongitude: { type: 'number', example: -74.0060 },
               user: {
                 type: 'object',
                 properties: {

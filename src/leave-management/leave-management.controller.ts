@@ -8,7 +8,7 @@ import { LeaveManagementService } from './leave-management.service';
 @UseGuards(AuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class LeaveManagementController {
-  constructor(private readonly leaveManagementService: LeaveManagementService) {}
+  constructor(private readonly leaveManagementService: LeaveManagementService) { }
 
   // Holiday Management Endpoints
   @Post('holidays')
@@ -27,8 +27,8 @@ export class LeaveManagementController {
       required: ['name', 'date', 'description']
     }
   })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'Holiday created successfully',
     schema: {
       type: 'object',
@@ -68,8 +68,8 @@ export class LeaveManagementController {
 
   @Get('holidays')
   @ApiOperation({ summary: 'Get all active holidays' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Holidays retrieved successfully',
     schema: {
       type: 'object',
@@ -110,8 +110,8 @@ export class LeaveManagementController {
   @Get('holidays/year/:year')
   @ApiOperation({ summary: 'Get holidays for a specific year' })
   @ApiParam({ name: 'year', description: 'Year (e.g., 2024)', example: '2024' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Holidays retrieved successfully',
     schema: {
       type: 'object',
@@ -140,20 +140,21 @@ export class LeaveManagementController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getHolidaysByYear(@Param('year') year: string) {
     const holidays = await this.leaveManagementService.getHolidaysByYear(parseInt(year));
-    return {
-      code: 200,
-      status: 'OK',
-      data: holidays,
-      timestamp: new Date().toISOString(),
-      path: `/api/leave-management/holidays/year/${year}`
-    };
+    return holidays;
+    // return {
+    //   code: 200,
+    //   status: 'OK',s
+    //   data: holidays,
+    //   timestamp: new Date().toISOString(),
+    //   path: `/api/leave-management/holidays/year/${year}`
+    // };
   }
 
   @Get('holidays/:id')
   @ApiOperation({ summary: 'Get holiday by ID' })
   @ApiParam({ name: 'id', description: 'Holiday ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Holiday retrieved successfully',
     schema: {
       type: 'object',
@@ -205,8 +206,8 @@ export class LeaveManagementController {
       }
     }
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Holiday updated successfully',
     schema: {
       type: 'object',
@@ -245,8 +246,8 @@ export class LeaveManagementController {
   @Delete('holidays/:id')
   @ApiOperation({ summary: 'Delete holiday' })
   @ApiParam({ name: 'id', description: 'Holiday ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Holiday deleted successfully',
     schema: {
       type: 'object',
@@ -280,51 +281,51 @@ export class LeaveManagementController {
     schema: {
       type: 'object',
       properties: {
-        leaveType: { 
-          type: 'string', 
+        leaveType: {
+          type: 'string',
           enum: ['full-day', 'half-day', 'sick', 'casual', 'annual', 'other'],
           example: 'annual',
           description: 'Type of leave'
         },
-        startDate: { 
-          type: 'string', 
-          format: 'date', 
-          example: '2024-01-15', 
-          description: 'Start date of leave' 
+        startDate: {
+          type: 'string',
+          format: 'date',
+          example: '2024-01-15',
+          description: 'Start date of leave'
         },
-        endDate: { 
-          type: 'string', 
-          format: 'date', 
-          example: '2024-01-17', 
-          description: 'End date of leave' 
+        endDate: {
+          type: 'string',
+          format: 'date',
+          example: '2024-01-17',
+          description: 'End date of leave'
         },
-        reason: { 
-          type: 'string', 
-          example: 'Family vacation', 
-          description: 'Reason for leave' 
+        reason: {
+          type: 'string',
+          example: 'Family vacation',
+          description: 'Reason for leave'
         },
-        isHalfDay: { 
-          type: 'boolean', 
-          example: false, 
-          description: 'Whether this is a half-day leave' 
+        isHalfDay: {
+          type: 'boolean',
+          example: false,
+          description: 'Whether this is a half-day leave'
         },
-        halfDayType: { 
-          type: 'string', 
+        halfDayType: {
+          type: 'string',
           enum: ['morning', 'afternoon'],
           example: 'morning',
-          description: 'Half-day type (morning/afternoon)' 
+          description: 'Half-day type (morning/afternoon)'
         },
-        notes: { 
-          type: 'string', 
-          example: 'Additional notes about the leave', 
-          description: 'Additional notes' 
+        notes: {
+          type: 'string',
+          example: 'Additional notes about the leave',
+          description: 'Additional notes'
         }
       },
       required: ['leaveType', 'startDate', 'endDate', 'reason']
     }
   })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'Leave request created successfully',
     schema: {
       type: 'object',
@@ -369,8 +370,8 @@ export class LeaveManagementController {
 
   @Get('leave-requests/my')
   @ApiOperation({ summary: 'Get current user\'s leave requests' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Leave requests retrieved successfully',
     schema: {
       type: 'object',
@@ -421,8 +422,8 @@ export class LeaveManagementController {
   @ApiQuery({ name: 'endDate', required: false, description: 'Filter by end date (YYYY-MM-DD)', example: '2024-12-31' })
   @ApiQuery({ name: 'isHalfDay', required: false, description: 'Filter by half day', example: true })
   @ApiQuery({ name: 'approvedBy', required: false, description: 'Filter by approver ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Leave requests retrieved successfully',
     schema: {
       type: 'object',
@@ -506,8 +507,8 @@ export class LeaveManagementController {
   @ApiOperation({ summary: 'Get leave requests by date range' })
   @ApiQuery({ name: 'startDate', required: true, description: 'Start date (YYYY-MM-DD)', example: '2024-01-01' })
   @ApiQuery({ name: 'endDate', required: true, description: 'End date (YYYY-MM-DD)', example: '2024-12-31' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Leave requests retrieved successfully',
     schema: {
       type: 'object',
@@ -552,8 +553,8 @@ export class LeaveManagementController {
 
   @Get('leave-requests/balance')
   @ApiOperation({ summary: 'Get current user\'s leave balance' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Leave balance retrieved successfully',
     schema: {
       type: 'object',
@@ -590,8 +591,8 @@ export class LeaveManagementController {
   @Get('leave-requests/:id')
   @ApiOperation({ summary: 'Get leave request by ID' })
   @ApiParam({ name: 'id', description: 'Leave request ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Leave request retrieved successfully',
     schema: {
       type: 'object',
@@ -643,8 +644,8 @@ export class LeaveManagementController {
       }
     }
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Leave request updated successfully',
     schema: {
       type: 'object',
@@ -685,28 +686,28 @@ export class LeaveManagementController {
     schema: {
       type: 'object',
       properties: {
-        status: { 
-          type: 'string', 
+        status: {
+          type: 'string',
           enum: ['approved', 'rejected'],
           example: 'approved',
-          description: 'New status for the leave request' 
+          description: 'New status for the leave request'
         },
-        notes: { 
-          type: 'string', 
-          example: 'Approved with notes', 
-          description: 'Notes when approving (optional)' 
+        notes: {
+          type: 'string',
+          example: 'Approved with notes',
+          description: 'Notes when approving (optional)'
         },
-        rejectionReason: { 
-          type: 'string', 
-          example: 'Insufficient notice period', 
-          description: 'Reason when rejecting (required for rejection)' 
+        rejectionReason: {
+          type: 'string',
+          example: 'Insufficient notice period',
+          description: 'Reason when rejecting (required for rejection)'
         }
       },
       required: ['status']
     }
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Leave request status updated successfully',
     schema: {
       type: 'object',
@@ -733,7 +734,7 @@ export class LeaveManagementController {
   @ApiResponse({ status: 404, description: 'Leave request not found' })
   async updateLeaveRequestStatus(
     @Param('id') id: string,
-    @Body() body: { 
+    @Body() body: {
       status: 'approved' | 'rejected';
       notes?: string;
       rejectionReason?: string;
@@ -766,16 +767,16 @@ export class LeaveManagementController {
     schema: {
       type: 'object',
       properties: {
-        notes: { 
-          type: 'string', 
-          example: 'Approved with notes', 
-          description: 'Notes for approval (optional)' 
+        notes: {
+          type: 'string',
+          example: 'Approved with notes',
+          description: 'Notes for approval (optional)'
         }
       }
     }
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Leave request approved successfully',
     schema: {
       type: 'object',
@@ -826,17 +827,17 @@ export class LeaveManagementController {
     schema: {
       type: 'object',
       properties: {
-        rejectionReason: { 
-          type: 'string', 
-          example: 'Insufficient notice period', 
-          description: 'Reason for rejection (required)' 
+        rejectionReason: {
+          type: 'string',
+          example: 'Insufficient notice period',
+          description: 'Reason for rejection (required)'
         }
       },
       required: ['rejectionReason']
     }
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Leave request rejected successfully',
     schema: {
       type: 'object',
@@ -883,8 +884,8 @@ export class LeaveManagementController {
   @Put('leave-requests/:id/cancel')
   @ApiOperation({ summary: 'Cancel leave request' })
   @ApiParam({ name: 'id', description: 'Leave request ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Leave request cancelled successfully',
     schema: {
       type: 'object',

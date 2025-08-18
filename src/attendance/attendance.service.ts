@@ -9,7 +9,7 @@ export class AttendanceService {
     @InjectModel(Attendance.name) private attendanceModel: Model<AttendanceDocument>,
   ) {}
 
-  async checkIn(userId: string): Promise<Attendance> {
+  async checkIn(userId: string, location?: { latitude?: number; longitude?: number }): Promise<Attendance> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -34,6 +34,8 @@ export class AttendanceService {
         checkInTime: new Date(),
         status: 'present',
         sessionNumber: nextSessionNumber,
+        checkInLatitude: location?.latitude,
+        checkInLongitude: location?.longitude,
       });
 
       return await attendance.save();
@@ -49,6 +51,8 @@ export class AttendanceService {
           checkInTime: new Date(),
           status: 'present',
           sessionNumber: nextSessionNumber,
+          checkInLatitude: location?.latitude,
+          checkInLongitude: location?.longitude,
         });
 
         return await attendance.save();
@@ -66,7 +70,7 @@ export class AttendanceService {
     return todaySessions.length > 0 ? todaySessions[0].sessionNumber + 1 : 1;
   }
 
-  async startNewSession(userId: string): Promise<Attendance> {
+  async startNewSession(userId: string, location?: { latitude?: number; longitude?: number }): Promise<Attendance> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -90,12 +94,14 @@ export class AttendanceService {
       checkInTime: new Date(),
       status: 'present',
       sessionNumber: nextSessionNumber,
+      checkInLatitude: location?.latitude,
+      checkInLongitude: location?.longitude,
     });
 
     return await attendance.save();
   }
 
-  async checkOut(userId: string): Promise<Attendance> {
+  async checkOut(userId: string, location?: { latitude?: number; longitude?: number }): Promise<Attendance> {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -116,6 +122,8 @@ export class AttendanceService {
     attendance.checkOutTime = checkOutTime;
     attendance.isCheckedOut = true;
     attendance.totalHours = Math.round(totalHours * 100) / 100;
+    attendance.checkOutLatitude = location?.latitude;
+    attendance.checkOutLongitude = location?.longitude;
 
     return attendance.save();
   }
