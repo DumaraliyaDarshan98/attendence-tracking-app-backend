@@ -402,13 +402,14 @@ export class LeaveManagementController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getMyLeaveRequests(@Request() req: any) {
     const leaveRequests = await this.leaveManagementService.getUserLeaveRequests(req.user._id);
-    return {
-      code: 200,
-      status: 'OK',
-      data: leaveRequests,
-      timestamp: new Date().toISOString(),
-      path: '/api/leave-management/leave-requests/my'
-    };
+    return leaveRequests;
+    // return {
+    //   code: 200,
+    //   status: 'OK',
+    //   data: leaveRequests,
+    //   timestamp: new Date().toISOString(),
+    //   path: '/api/leave-management/leave-requests/my'
+    // };
   }
 
   @Get('leave-requests')
