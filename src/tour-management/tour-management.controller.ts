@@ -99,14 +99,15 @@ export class TourManagementController {
     };
 
     const result = await this.tourManagementService.findAll(page, limit, filters);
-    
-    return {
-      code: 200,
-      status: 'OK',
-      data: result,
-      timestamp: new Date().toISOString(),
-      path: '/api/tour-management/tours'
-    };
+
+    return result;
+    // return {
+    //   code: 200,
+    //   status: 'OK',
+    //   data: result,
+    //   timestamp: new Date().toISOString(),
+    //   path: '/api/tour-management/tours'
+    // };
   }
 
   @Get('tours/my')
@@ -149,13 +150,14 @@ export class TourManagementController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findOne(@Param('id') id: string) {
     const tour = await this.tourManagementService.findOne(id);
-    return {
-      code: 200,
-      status: 'OK',
-      data: tour,
-      timestamp: new Date().toISOString(),
-      path: `/api/tour-management/tours/${id}`
-    };
+    return tour;
+    // return {
+    //   code: 200,
+    //   status: 'OK',
+    //   data: tour,
+    //   timestamp: new Date().toISOString(),
+    //   path: `/api/tour-management/tours/${id}`
+    // };
   }
 
   @Patch('tours/:id')
