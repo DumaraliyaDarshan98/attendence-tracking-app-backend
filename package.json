@@ -25,7 +25,8 @@
     "migrate:user-roles": "ts-node src/scripts/migrate-user-roles.ts",
     "migrate:user-roles:js": "node migrate-user-roles.js",
     "migrate:attendance-indexes": "ts-node src/scripts/migrate-attendance-indexes.ts",
-    "migrate:attendance-indexes:js": "node migrate-attendance-indexes.js"
+    "migrate:attendance-indexes:js": "node migrate-attendance-indexes.js",
+    "test:roles-permissions": "node test-roles-permissions.js"
   },
   "dependencies": {
     "@nestjs/common": "^10.4.20",
@@ -58,6 +59,7 @@
     "@types/jsonwebtoken": "^9.0.6",
     "@types/node": "^22.10.7",
     "@types/supertest": "^6.0.2",
+    "axios": "^1.11.0",
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",

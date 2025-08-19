@@ -1,5 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsBoolean, IsArray, MinLength, MaxLength, IsMongoId } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsArray, MinLength, MaxLength, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { RolePermissionDto } from './create-role.dto';
 
 export class UpdateRoleDto {
   @ApiPropertyOptional({
@@ -53,12 +55,24 @@ export class UpdateRoleDto {
   readonly isActive?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Array of permission IDs to assign to this role',
-    example: ['64f8a1b2c3d4e5f6a7b8c9d0', '64f8a1b2c3d4e5f6a7b8c9d1'],
-    type: [String],
+    description: 'Array of module permissions for this role',
+    example: [
+      { module: 'users', actions: ['read', 'list'] },
+      { module: 'attendance', actions: ['read', 'list', 'export'] }
+    ],
+    type: [RolePermissionDto],
   })
   @IsOptional()
   @IsArray()
-  @IsMongoId({ each: true })
-  readonly permissions?: string[];
+  @ValidateNested({ each: true })
+  @Type(() => RolePermissionDto)
+  readonly permissions?: RolePermissionDto[];
+
+  @ApiPropertyOptional({
+    description: 'Whether this is a system role (cannot be deleted)',
+    example: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  readonly isSystemRole?: boolean;
 } 

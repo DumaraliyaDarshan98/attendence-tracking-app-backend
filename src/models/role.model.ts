@@ -1,6 +1,11 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
+export interface RolePermission {
+  module: string;
+  actions: string[]; // ['create', 'read', 'update', 'delete', 'list', 'approve', 'reject', 'export']
+}
+
 export type RoleDocument = Role & Document;
 
 @Schema({ timestamps: true })
@@ -14,14 +19,17 @@ export class Role {
   @Prop({ default: false })
   isSuperAdmin: boolean;
 
-  @Prop({ type: [{ type: Types.ObjectId, ref: 'Permission' }] })
-  permissions: Types.ObjectId[];
+  @Prop({ type: [Object], default: [] })
+  permissions: RolePermission[];
 
   @Prop({ default: true })
   isActive: boolean;
 
   @Prop()
   description?: string;
+
+  @Prop({ default: false })
+  isSystemRole: boolean; // To prevent deletion of system roles
 }
 
 export const RoleSchema = SchemaFactory.createForClass(Role); 
