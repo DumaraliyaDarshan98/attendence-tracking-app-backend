@@ -128,14 +128,14 @@ export class TourManagementController {
     const limit = query.limit ? parseInt(query.limit.toString()) : 10;
 
     const result = await this.tourManagementService.findByUser(req.user._id, page, limit);
-    
-    return {
-      code: 200,
-      status: 'OK',
-      data: result,
-      timestamp: new Date().toISOString(),
-      path: '/api/tour-management/tours/my'
-    };
+    return result;
+    // return {
+    //   code: 200,
+    //   status: 'OK',
+    //   data: result,
+    //   timestamp: new Date().toISOString(),
+    //   path: '/api/tour-management/tours/my'
+    // };
   }
 
   @Get('tours/:id')
@@ -179,13 +179,7 @@ export class TourManagementController {
     @Body() updateTourDto: UpdateTourDto,
   ) {
     const tour = await this.tourManagementService.update(id, updateTourDto);
-    return {
-      code: 200,
-      status: 'OK',
-      data: tour,
-      timestamp: new Date().toISOString(),
-      path: `/api/tour-management/tours/${id}`
-    };
+    return tour;
   }
 
   @Patch('tours/:id/status')
@@ -216,13 +210,7 @@ export class TourManagementController {
       changedByName
     );
     
-    return {
-      code: 200,
-      status: 'OK',
-      data: tour,
-      timestamp: new Date().toISOString(),
-      path: `/api/tour-management/tours/${id}/status`
-    };
+    return tour;
   }
 
   @Get('tours/:id/status-history')
@@ -258,13 +246,7 @@ export class TourManagementController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getStatusHistory(@Param('id') id: string) {
     const history = await this.tourManagementService.getStatusHistory(id);
-    return {
-      code: 200,
-      status: 'OK',
-      data: history,
-      timestamp: new Date().toISOString(),
-      path: `/api/tour-management/tours/${id}/status-history`
-    };
+    return history;
   }
 
   @Get('tours/range')
@@ -283,13 +265,7 @@ export class TourManagementController {
     @Query('endDate') endDate: string,
   ) {
     const tours = await this.tourManagementService.getToursByDateRange(startDate, endDate);
-    return {
-      code: 200,
-      status: 'OK',
-      data: tours,
-      timestamp: new Date().toISOString(),
-      path: '/api/tour-management/tours/range'
-    };
+    return tours;
   }
 
   @Delete('tours/:id')
@@ -301,12 +277,6 @@ export class TourManagementController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async remove(@Param('id') id: string) {
     await this.tourManagementService.remove(id);
-    return {
-      code: 204,
-      status: 'No Content',
-      data: { message: 'Tour deleted successfully' },
-      timestamp: new Date().toISOString(),
-      path: `/api/tour-management/tours/${id}`
-    };
+    return { message: 'Tour deleted successfully' };
   }
 }
