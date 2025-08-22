@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { User, UserDocument } from '../models/user.model';
 import { RolesService } from '../roles/roles.service';
 import * as bcrypt from 'bcrypt';
+import { DateUtil } from '../common/utils';
 
 @Injectable()
 export class UsersService {

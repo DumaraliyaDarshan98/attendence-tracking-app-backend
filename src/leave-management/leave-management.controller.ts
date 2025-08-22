@@ -2,6 +2,7 @@ import { Controller, Get, Post, Put, Delete, Body, Param, Query, Request, UseGua
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { AuthGuard } from '../guards/auth.guard';
 import { LeaveManagementService } from './leave-management.service';
+import { DateUtil } from '../common/utils';
 
 @ApiTags('Leave Management')
 @Controller('leave-management')
@@ -61,7 +62,7 @@ export class LeaveManagementController {
       code: 201,
       status: 'Created',
       data: holiday,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/leave-management/holidays'
     };
   }
@@ -102,7 +103,7 @@ export class LeaveManagementController {
       code: 200,
       status: 'OK',
       data: holidays,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/leave-management/holidays'
     };
   }
@@ -185,7 +186,7 @@ export class LeaveManagementController {
       code: 200,
       status: 'OK',
       data: holiday,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: `/api/leave-management/holidays/${id}`
     };
   }
@@ -238,7 +239,7 @@ export class LeaveManagementController {
       code: 200,
       status: 'OK',
       data: holiday,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: `/api/leave-management/holidays/${id}`
     };
   }
@@ -268,7 +269,7 @@ export class LeaveManagementController {
       code: 200,
       status: 'OK',
       data: 'Holiday deleted successfully',
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: `/api/leave-management/holidays/${id}`
     };
   }
@@ -363,7 +364,7 @@ export class LeaveManagementController {
       code: 201,
       status: 'Created',
       data: leaveRequest,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/leave-management/leave-requests'
     };
   }
@@ -499,7 +500,7 @@ export class LeaveManagementController {
         total: result.total,
         totalPages: result.totalPages
       },
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/leave-management/leave-requests'
     };
   }
@@ -547,7 +548,7 @@ export class LeaveManagementController {
       code: 200,
       status: 'OK',
       data: leaveRequests,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/leave-management/leave-requests/range'
     };
   }
@@ -584,7 +585,7 @@ export class LeaveManagementController {
       code: 200,
       status: 'OK',
       data: balance,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/leave-management/leave-requests/balance'
     };
   }
@@ -627,7 +628,7 @@ export class LeaveManagementController {
       code: 200,
       status: 'OK',
       data: leaveRequest,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: `/api/leave-management/leave-requests/${id}`
     };
   }
@@ -674,7 +675,7 @@ export class LeaveManagementController {
       code: 200,
       status: 'OK',
       data: leaveRequest,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: `/api/leave-management/leave-requests/${id}`
     };
   }
@@ -755,7 +756,7 @@ export class LeaveManagementController {
       code: 200,
       status: 'OK',
       data: leaveRequest,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: `/api/leave-management/leave-requests/${id}/status`
     };
   }
@@ -815,7 +816,7 @@ export class LeaveManagementController {
       code: 200,
       status: 'OK',
       data: leaveRequest,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: `/api/leave-management/leave-requests/${id}/approve`
     };
   }
@@ -877,7 +878,7 @@ export class LeaveManagementController {
       code: 200,
       status: 'OK',
       data: leaveRequest,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: `/api/leave-management/leave-requests/${id}/reject`
     };
   }
@@ -913,7 +914,7 @@ export class LeaveManagementController {
       code: 200,
       status: 'OK',
       data: leaveRequest,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: `/api/leave-management/leave-requests/${id}/cancel`
     };
   }

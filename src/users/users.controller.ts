@@ -6,6 +6,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
 import { AuthGuard } from '../guards/auth.guard';
+import { DateUtil } from '../common/utils';
 
 @ApiTags('Users')
 @Controller('users')
@@ -85,7 +86,7 @@ export class UsersController {
       code: 201,
       status: 'Created',
       data: user,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/users/register'
     };
   }

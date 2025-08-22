@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery }
 import { AuthGuard } from '../guards/auth.guard';
 import { AttendanceService } from './attendance.service';
 import { CheckInDto, CheckOutDto } from './dto';
+import { DateUtil } from '../common/utils';
 
 @ApiTags('Attendance')
 @Controller('attendance')
@@ -53,7 +54,7 @@ export class AttendanceController {
       code: 201,
       status: 'Created',
       data: attendance,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/attendance/checkin'
     };
   }
@@ -100,7 +101,7 @@ export class AttendanceController {
       code: 201,
       status: 'Created',
       data: attendance,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/attendance/start-new-session'
     };
   }
@@ -152,7 +153,7 @@ export class AttendanceController {
       code: 200,
       status: 'OK',
       data: attendance,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/attendance/checkout'
     };
   }
@@ -200,7 +201,7 @@ export class AttendanceController {
       code: 200,
       status: 'OK',
       data: attendance,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/attendance/today'
     };
   }
@@ -307,7 +308,7 @@ export class AttendanceController {
       code: 200,
       status: 'OK',
       data: attendance,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/attendance/range'
     };
   }
@@ -355,7 +356,7 @@ export class AttendanceController {
       code: 200,
       status: 'OK',
       data: attendance,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/attendance/all'
     };
   }
@@ -442,7 +443,7 @@ export class AttendanceController {
         total: result.total,
         totalPages: result.totalPages
       },
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/attendance/admin/all-users'
     };
   }

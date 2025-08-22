@@ -2,6 +2,7 @@ import { Injectable, ConflictException, NotFoundException } from '@nestjs/common
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Attendance, AttendanceDocument } from '../models/attendance.model';
+import { DateUtil } from '../common/utils';
 
 @Injectable()
 export class AttendanceService {
@@ -10,8 +11,7 @@ export class AttendanceService {
   ) {}
 
   async checkIn(userId: string, location?: { latitude?: number; longitude?: number }): Promise<Attendance> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = DateUtil.getCurrentDateISTStartOfDay();
 
     try {
       // Check if user has an open session (checked in but not checked out) for today
@@ -31,7 +31,7 @@ export class AttendanceService {
       const attendance = new this.attendanceModel({
         userId,
         date: today,
-        checkInTime: new Date(),
+        checkInTime: DateUtil.getCurrentDateIST(),
         status: 'present',
         sessionNumber: nextSessionNumber,
         checkInLatitude: location?.latitude,
@@ -48,7 +48,7 @@ export class AttendanceService {
         const attendance = new this.attendanceModel({
           userId,
           date: today,
-          checkInTime: new Date(),
+          checkInTime: DateUtil.getCurrentDateIST(),
           status: 'present',
           sessionNumber: nextSessionNumber,
           checkInLatitude: location?.latitude,
@@ -71,8 +71,7 @@ export class AttendanceService {
   }
 
   async startNewSession(userId: string, location?: { latitude?: number; longitude?: number }): Promise<Attendance> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = DateUtil.getCurrentDateISTStartOfDay();
 
     // Check if user has an open session for today
     const openSession = await this.attendanceModel.findOne({
@@ -91,7 +90,7 @@ export class AttendanceService {
     const attendance = new this.attendanceModel({
       userId,
       date: today,
-      checkInTime: new Date(),
+      checkInTime: DateUtil.getCurrentDateIST(),
       status: 'present',
       sessionNumber: nextSessionNumber,
       checkInLatitude: location?.latitude,
@@ -102,8 +101,7 @@ export class AttendanceService {
   }
 
   async checkOut(userId: string, location?: { latitude?: number; longitude?: number }): Promise<Attendance> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = DateUtil.getCurrentDateISTStartOfDay();
 
     // Find the most recent open session for today
     const attendance = await this.attendanceModel.findOne({
@@ -116,7 +114,7 @@ export class AttendanceService {
       throw new NotFoundException('No active check-in session found for today');
     }
 
-    const checkOutTime = new Date();
+    const checkOutTime = DateUtil.getCurrentDateIST();
     const totalHours = (checkOutTime.getTime() - attendance.checkInTime.getTime()) / (1000 * 60 * 60);
 
     attendance.checkOutTime = checkOutTime;
@@ -129,11 +127,8 @@ export class AttendanceService {
   }
 
   async getAttendanceByDate(userId: string, date: string): Promise<Attendance[]> {
-    const startDate = new Date(date);
-    startDate.setHours(0, 0, 0, 0);
-    
-    const endDate = new Date(date);
-    endDate.setHours(23, 59, 59, 999);
+    const startDate = DateUtil.parseDateToISTStartOfDay(date);
+    const endDate = DateUtil.parseDateToISTEndOfDay(date);
 
     return this.attendanceModel.find({
       userId,
@@ -145,11 +140,8 @@ export class AttendanceService {
   }
 
   async getAttendanceByDateRange(userId: string, startDate: string, endDate: string): Promise<Attendance[]> {
-    const start = new Date(startDate);
-    start.setHours(0, 0, 0, 0);
-    
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
+    const start = DateUtil.parseDateToISTStartOfDay(startDate);
+    const end = DateUtil.parseDateToISTEndOfDay(endDate);
 
     return this.attendanceModel.find({
       userId,
@@ -161,8 +153,7 @@ export class AttendanceService {
   }
 
   async getTodayAttendance(userId: string): Promise<Attendance[]> {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today = DateUtil.getCurrentDateISTStartOfDay();
 
     return this.attendanceModel.find({
       userId,
@@ -181,11 +172,8 @@ export class AttendanceService {
     page: number = 1,
     limit: number = 10
   ): Promise<{ data: Attendance[]; total: number; page: number; limit: number; totalPages: number }> {
-    const startDate = new Date(date);
-    startDate.setHours(0, 0, 0, 0);
-    
-    const endDate = new Date(date);
-    endDate.setHours(23, 59, 59, 999);
+    const startDate = DateUtil.parseDateToISTStartOfDay(date);
+    const endDate = DateUtil.parseDateToISTEndOfDay(date);
 
     // Build query
     const query: any = {

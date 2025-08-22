@@ -8,6 +8,7 @@ import {
 import { Observable } from 'rxjs';
 import { map } from 'rxjs/operators';
 import { Response } from 'express';
+import { DateUtil } from '../utils';
 
 export interface ResponseData<T> {
   code: number;
@@ -47,7 +48,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, ResponseData<T
           status,
           data: cleanData,
           pagination,
-          timestamp: new Date().toISOString(),
+          timestamp: DateUtil.toISOStringIST(new Date()),
           path: request.url,
         };
       }),

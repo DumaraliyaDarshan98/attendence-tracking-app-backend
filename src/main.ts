@@ -7,6 +7,9 @@ import { ResponseInterceptor } from './common/interceptors';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { join } from 'path';
 
+// Set timezone to IST (Indian Standard Time)
+process.env.TZ = 'Asia/Kolkata';
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   

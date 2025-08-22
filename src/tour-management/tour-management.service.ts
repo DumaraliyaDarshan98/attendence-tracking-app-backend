@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Tour, TourDocument } from '../models/tour.model';
 import { CreateTourDto, UpdateTourDto, UpdateTourStatusDto } from './dto';
+import { DateUtil } from '../common/utils';
 
 @Injectable()
 export class TourManagementService {
@@ -22,7 +23,7 @@ export class TourManagementService {
         changedBy: createdBy,
         changedByName: 'System', // Will be updated with actual user name
         notes: 'Tour assigned to user',
-        changedAt: new Date()
+        changedAt: DateUtil.getCurrentDateIST()
       }]
     });
 
@@ -60,10 +61,10 @@ export class TourManagementService {
     if (filters.startDate || filters.endDate) {
       filterQuery.expectedTime = {};
       if (filters.startDate) {
-        filterQuery.expectedTime.$gte = new Date(filters.startDate);
+        filterQuery.expectedTime.$gte = DateUtil.parseDateToISTStartOfDay(filters.startDate);
       }
       if (filters.endDate) {
-        filterQuery.expectedTime.$lte = new Date(filters.endDate);
+        filterQuery.expectedTime.$lte = DateUtil.parseDateToISTEndOfDay(filters.endDate);
       }
     }
 
@@ -177,12 +178,12 @@ export class TourManagementService {
       changedBy,
       changedByName,
       notes: updateStatusDto.notes || '',
-      changedAt: new Date()
+      changedAt: DateUtil.getCurrentDateIST()
     };
 
     // Handle specific status updates
     if (updateStatusDto.status === 'in-progress' && updateStatusDto.actualVisitTime) {
-      updateData.actualVisitTime = new Date(updateStatusDto.actualVisitTime);
+      updateData.actualVisitTime = DateUtil.parseDateToISTStartOfDay(updateStatusDto.actualVisitTime);
     }
 
     if (updateStatusDto.status === 'completed' && updateStatusDto.completionNotes) {
@@ -248,8 +249,8 @@ export class TourManagementService {
   async getToursByDateRange(startDate: string, endDate: string): Promise<Tour[]> {
     const filterQuery = {
       expectedTime: {
-        $gte: new Date(startDate),
-        $lte: new Date(endDate)
+        $gte: DateUtil.parseDateToISTStartOfDay(startDate),
+        $lte: DateUtil.parseDateToISTEndOfDay(endDate)
       },
       isActive: true
     };

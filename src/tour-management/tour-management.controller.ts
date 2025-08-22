@@ -31,6 +31,7 @@ import {
 } from './dto';
 import { AuthGuard } from '../guards/auth.guard';
 import { PaginationQueryDto } from '../common/dto/pagination-query.dto';
+import { DateUtil } from '../common/utils';
 
 @ApiTags('Tour Management')
 @Controller('tour-management')
@@ -59,7 +60,7 @@ export class TourManagementController {
       code: 201,
       status: 'Created',
       data: tour,
-      timestamp: new Date().toISOString(),
+      timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/tour-management/tours'
     };
   }

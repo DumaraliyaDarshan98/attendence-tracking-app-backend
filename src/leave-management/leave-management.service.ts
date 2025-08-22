@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Holiday, HolidayDocument } from '../models/holiday.model';
 import { LeaveRequest, LeaveRequestDocument } from '../models/leave-request.model';
+import { DateUtil } from '../common/utils';
 
 @Injectable()
 export class LeaveManagementService {
@@ -45,8 +46,8 @@ export class LeaveManagementService {
   }
 
   async getHolidaysByYear(year: number): Promise<Holiday[]> {
-    const startDate = new Date(year, 0, 1);
-    const endDate = new Date(year, 11, 31);
+    const startDate = DateUtil.getStartOfYearIST(year);
+    const endDate = DateUtil.getEndOfYearIST(year);
     
     return await this.holidayModel.find({
       date: { $gte: startDate, $lte: endDate },
@@ -57,8 +58,8 @@ export class LeaveManagementService {
   // Leave Request Methods
   async createLeaveRequest(leaveData: any): Promise<LeaveRequest> {
     // Calculate total days
-    const startDate = new Date(leaveData.startDate);
-    const endDate = new Date(leaveData.endDate);
+    const startDate = DateUtil.parseDateToISTStartOfDay(leaveData.startDate);
+    const endDate = DateUtil.parseDateToISTStartOfDay(leaveData.endDate);
     
     if (startDate > endDate) {
       throw new BadRequestException('Start date cannot be after end date');
@@ -180,7 +181,7 @@ export class LeaveManagementService {
     const updateData: any = {
       status,
       approvedBy: new Types.ObjectId(approverId),
-      approvedAt: new Date()
+      approvedAt: DateUtil.getCurrentDateIST()
     };
 
     if (status === 'approved') {
@@ -261,9 +262,9 @@ export class LeaveManagementService {
 
   // Get user's leave balance (you can extend this based on your leave policy)
   async getUserLeaveBalance(userId: string): Promise<any> {
-    const currentYear = new Date().getFullYear();
-    const startOfYear = new Date(currentYear, 0, 1);
-    const endOfYear = new Date(currentYear, 11, 31);
+    const currentYear = DateUtil.getCurrentYearIST();
+    const startOfYear = DateUtil.getStartOfYearIST(currentYear);
+    const endOfYear = DateUtil.getEndOfYearIST(currentYear);
 
     const approvedLeaves = await this.leaveRequestModel.find({
       userId: new Types.ObjectId(userId),
