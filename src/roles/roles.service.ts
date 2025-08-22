@@ -1,17 +1,18 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model, Types } from 'mongoose';
-import { Role, RoleDocument } from '../models/role.model';
-import { Permission, PermissionDocument } from '../models/permission.model';
+import { Model } from 'mongoose';
+import { Role, RoleDocument, RolePermission } from '../models/role.model';
+import { CreateRoleDto } from './dto/create-role.dto';
+import { UpdateRoleDto } from './dto/update-role.dto';
+import { AssignPermissionsDto } from './dto/assign-permissions.dto';
 
 @Injectable()
 export class RolesService {
   constructor(
     @InjectModel(Role.name) private roleModel: Model<RoleDocument>,
-    @InjectModel(Permission.name) private permissionModel: Model<PermissionDocument>,
   ) {}
 
-  async create(createRoleDto: any): Promise<Role> {
+  async create(createRoleDto: CreateRoleDto): Promise<Role> {
     const { name, displayName, permissions, description, isSuperAdmin } = createRoleDto;
 
     // Check if role already exists
@@ -20,23 +21,29 @@ export class RolesService {
       throw new ConflictException('Role with this name already exists');
     }
 
+    // Validate permissions structure
+    if (permissions) {
+      this.validatePermissions(permissions);
+    }
+
     const role = new this.roleModel({
       name,
       displayName,
       permissions: permissions || [],
       description,
       isSuperAdmin: isSuperAdmin || false,
+      isSystemRole: false, // Custom roles are not system roles
     });
 
     return role.save();
   }
 
   async findAll(): Promise<Role[]> {
-    return this.roleModel.find().populate('permissions').exec();
+    return this.roleModel.find().exec();
   }
 
   async findOne(id: string): Promise<Role> {
-    const role = await this.roleModel.findById(id).populate('permissions').exec();
+    const role = await this.roleModel.findById(id).exec();
     if (!role) {
       throw new NotFoundException('Role not found');
     }
@@ -44,53 +51,76 @@ export class RolesService {
   }
 
   async findByName(name: string): Promise<Role> {
-    const role = await this.roleModel.findOne({ name }).populate('permissions').exec();
+    const role = await this.roleModel.findOne({ name }).exec();
     if (!role) {
       throw new NotFoundException('Role not found');
     }
     return role;
   }
 
-  async update(id: string, updateRoleDto: any): Promise<Role> {
-    const role = await this.roleModel
-      .findByIdAndUpdate(id, updateRoleDto, { new: true })
-      .populate('permissions')
-      .exec();
-    
+  async update(id: string, updateRoleDto: UpdateRoleDto): Promise<Role> {
+    const role = await this.roleModel.findById(id);
     if (!role) {
       throw new NotFoundException('Role not found');
     }
-    return role;
+
+    // Prevent updating system roles
+    if (role.isSystemRole && updateRoleDto.isSystemRole === false) {
+      throw new BadRequestException('Cannot modify system role status');
+    }
+
+    // Validate permissions structure if updating
+    if (updateRoleDto.permissions) {
+      this.validatePermissions(updateRoleDto.permissions);
+    }
+
+    const updatedRole = await this.roleModel
+      .findByIdAndUpdate(id, updateRoleDto, { new: true })
+      .exec();
+    
+    if (!updatedRole) {
+      throw new NotFoundException('Role not found during update');
+    }
+    
+    return updatedRole;
   }
 
   async remove(id: string): Promise<void> {
-    const result = await this.roleModel.findByIdAndDelete(id).exec();
-    if (!result) {
+    const role = await this.roleModel.findById(id);
+    if (!role) {
       throw new NotFoundException('Role not found');
     }
+
+    // Prevent deletion of system roles
+    if (role.isSystemRole) {
+      throw new BadRequestException('Cannot delete system roles');
+    }
+
+    // Check if role is assigned to any users
+    // TODO: Add user service dependency to check this
+    // const usersWithRole = await this.userService.countUsersWithRole(id);
+    // if (usersWithRole > 0) {
+    //   throw new ConflictException('Cannot delete role that is assigned to users');
+    // }
+
+    await this.roleModel.findByIdAndDelete(id).exec();
   }
 
-  async assignPermissions(roleId: string, permissionIds: string[]): Promise<Role> {
+  async assignPermissions(roleId: string, permissions: RolePermission[]): Promise<Role> {
     const role = await this.roleModel.findById(roleId);
     if (!role) {
       throw new NotFoundException('Role not found');
     }
 
-    // Verify all permissions exist
-    const permissions = await this.permissionModel.find({
-      _id: { $in: permissionIds }
-    });
-    
-    if (permissions.length !== permissionIds.length) {
-      throw new NotFoundException('Some permissions not found');
-    }
+    // Validate permissions structure
+    this.validatePermissions(permissions);
 
-    role.permissions = permissionIds.map(id => new Types.ObjectId(id));
+    role.permissions = permissions;
     return role.save();
   }
 
   async hasPermission(roleId: string, module: string, action: string): Promise<boolean> {
-    const role = await this.roleModel.findById(roleId).populate('permissions').exec();
+    const role = await this.roleModel.findById(roleId).exec();
     if (!role) {
       return false;
     }
@@ -101,11 +131,39 @@ export class RolesService {
     }
 
     // Check if role has the specific permission
-    const hasPermission = role.permissions.some((permission: any) => 
-      permission.module === module && permission.action === action
-    );
+    const modulePermission = role.permissions.find(p => p.module === module);
+    if (!modulePermission) {
+      return false;
+    }
 
-    return hasPermission;
+    return modulePermission.actions.includes(action);
+  }
+
+  private validatePermissions(permissions: RolePermission[]): void {
+    const validModules = [
+      'users', 'roles', 'permissions', 'attendance', 'leave', 
+      'holiday', 'tour', 'timelog', 'reports'
+    ];
+    
+    const validActions = [
+      'create', 'read', 'update', 'delete', 'list', 'approve', 'reject', 'export'
+    ];
+
+    for (const permission of permissions) {
+      if (!validModules.includes(permission.module)) {
+        throw new BadRequestException(`Invalid module: ${permission.module}`);
+      }
+
+      if (!Array.isArray(permission.actions) || permission.actions.length === 0) {
+        throw new BadRequestException(`Actions must be a non-empty array for module: ${permission.module}`);
+      }
+
+      for (const action of permission.actions) {
+        if (!validActions.includes(action)) {
+          throw new BadRequestException(`Invalid action: ${action} for module: ${permission.module}`);
+        }
+      }
+    }
   }
 
   async seedDefaultRoles(): Promise<void> {
@@ -116,27 +174,53 @@ export class RolesService {
         description: 'Has access to all modules and can manage roles and permissions',
         isSuperAdmin: true,
         permissions: [],
+        isSystemRole: true,
       },
       {
         name: 'admin',
         displayName: 'Administrator',
         description: 'Has access to most modules with limited role management',
         isSuperAdmin: false,
-        permissions: [],
+        permissions: [
+          { module: 'users', actions: ['create', 'read', 'update', 'list'] },
+          { module: 'attendance', actions: ['read', 'list', 'export'] },
+          { module: 'leave', actions: ['read', 'list', 'approve', 'reject'] },
+          { module: 'holiday', actions: ['read', 'list'] },
+          { module: 'tour', actions: ['read', 'list', 'approve', 'reject'] },
+          { module: 'timelog', actions: ['read', 'list', 'export'] },
+          { module: 'reports', actions: ['read', 'list', 'export'] }
+        ],
+        isSystemRole: true,
       },
       {
         name: 'manager',
         displayName: 'Manager',
         description: 'Can manage users and view reports',
         isSuperAdmin: false,
-        permissions: [],
+        permissions: [
+          { module: 'users', actions: ['read', 'list'] },
+          { module: 'attendance', actions: ['read', 'list'] },
+          { module: 'leave', actions: ['read', 'list', 'approve', 'reject'] },
+          { module: 'holiday', actions: ['read', 'list'] },
+          { module: 'tour', actions: ['read', 'list'] },
+          { module: 'timelog', actions: ['read', 'list'] },
+          { module: 'reports', actions: ['read', 'list'] }
+        ],
+        isSystemRole: true,
       },
       {
         name: 'user',
         displayName: 'User',
         description: 'Basic user with limited access',
         isSuperAdmin: false,
-        permissions: [],
+        permissions: [
+          { module: 'attendance', actions: ['create', 'read', 'list'] },
+          { module: 'leave', actions: ['create', 'read', 'list'] },
+          { module: 'tour', actions: ['create', 'read', 'list'] },
+          { module: 'timelog', actions: ['create', 'read', 'list'] },
+          { module: 'holiday', actions: ['read', 'list'] }
+        ],
+        isSystemRole: true,
       },
     ];
 
@@ -146,5 +230,20 @@ export class RolesService {
         await this.roleModel.create(roleData);
       }
     }
+  }
+
+  // Helper method to get all available modules
+  getAvailableModules(): string[] {
+    return [
+      'users', 'roles', 'permissions', 'attendance', 'leave', 
+      'holiday', 'tour', 'timelog', 'reports'
+    ];
+  }
+
+  // Helper method to get all available actions
+  getAvailableActions(): string[] {
+    return [
+      'create', 'read', 'update', 'delete', 'list', 'approve', 'reject', 'export'
+    ];
   }
 } 

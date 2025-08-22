@@ -241,7 +241,7 @@ export class RolesController {
   @Post(':id/permissions')
   @ApiOperation({ 
     summary: 'Assign permissions to role',
-    description: 'Assign specific permissions to a role. This will replace all existing permissions for the role.'
+    description: 'Assign specific module permissions to a role. This will replace all existing permissions for the role.'
   })
   @ApiParam({ 
     name: 'id', 
@@ -255,7 +255,7 @@ export class RolesController {
   })
   @ApiResponse({
     status: 400,
-    description: 'Bad Request - Validation error or invalid permission IDs',
+    description: 'Bad Request - Validation error or invalid permission structure',
     type: ValidationErrorResponseDto,
   })
   @ApiResponse({
@@ -270,13 +270,13 @@ export class RolesController {
   })
   @ApiResponse({
     status: 404,
-    description: 'Not Found - Role or some permissions not found',
+    description: 'Not Found - Role not found',
     type: NotFoundErrorResponseDto,
   })
   assignPermissions(
     @Param('id') id: string,
     @Body() assignPermissionsDto: AssignPermissionsDto,
   ) {
-    return this.rolesService.assignPermissions(id, assignPermissionsDto.permissionIds);
+    return this.rolesService.assignPermissions(id, assignPermissionsDto.permissions);
   }
 } 

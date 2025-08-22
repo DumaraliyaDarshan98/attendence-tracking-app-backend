@@ -1,14 +1,21 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsMongoId } from 'class-validator';
+import { IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { RolePermissionDto } from './create-role.dto';
 
 export class AssignPermissionsDto {
   @ApiProperty({
-    description: 'Array of permission IDs to assign to the role',
-    example: ['64f8a1b2c3d4e5f6a7b8c9d0', '64f8a1b2c3d4e5f6a7b8c9d1', '64f8a1b2c3d4e5f6a7b8c9d2'],
-    type: [String],
+    description: 'Array of module permissions to assign to the role',
+    example: [
+      { module: 'users', actions: ['read', 'list', 'create'] },
+      { module: 'attendance', actions: ['read', 'list', 'export'] },
+      { module: 'leave', actions: ['read', 'list', 'approve', 'reject'] }
+    ],
+    type: [RolePermissionDto],
     minItems: 1,
   })
   @IsArray()
-  @IsMongoId({ each: true })
-  readonly permissionIds: string[];
+  @ValidateNested({ each: true })
+  @Type(() => RolePermissionDto)
+  readonly permissions: RolePermissionDto[];
 } 

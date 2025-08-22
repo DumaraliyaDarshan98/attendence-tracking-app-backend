@@ -1,5 +1,26 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsString, IsOptional, IsBoolean, IsArray, MinLength, MaxLength, IsMongoId } from 'class-validator';
+import { IsString, IsOptional, IsBoolean, IsArray, MinLength, MaxLength, ValidateNested, IsObject } from 'class-validator';
+import { Type } from 'class-transformer';
+
+export class RolePermissionDto {
+  @ApiProperty({
+    description: 'Module name for the permission',
+    example: 'users',
+    enum: ['users', 'roles', 'permissions', 'attendance', 'leave', 'holiday', 'tour', 'timelog', 'reports']
+  })
+  @IsString()
+  readonly module: string;
+
+  @ApiProperty({
+    description: 'Array of actions allowed for this module',
+    example: ['create', 'read', 'update', 'list'],
+    type: [String],
+    enum: ['create', 'read', 'update', 'delete', 'list', 'approve', 'reject', 'export']
+  })
+  @IsArray()
+  @IsString({ each: true })
+  readonly actions: string[];
+}
 
 export class CreateRoleDto {
   @ApiProperty({
@@ -44,12 +65,16 @@ export class CreateRoleDto {
   readonly isSuperAdmin?: boolean;
 
   @ApiPropertyOptional({
-    description: 'Array of permission IDs to assign to this role',
-    example: ['64f8a1b2c3d4e5f6a7b8c9d0', '64f8a1b2c3d4e5f6a7b8c9d1'],
-    type: [String],
+    description: 'Array of module permissions for this role',
+    example: [
+      { module: 'users', actions: ['read', 'list'] },
+      { module: 'attendance', actions: ['read', 'list', 'export'] }
+    ],
+    type: [RolePermissionDto],
   })
   @IsOptional()
   @IsArray()
-  @IsMongoId({ each: true })
-  readonly permissions?: string[];
+  @ValidateNested({ each: true })
+  @Type(() => RolePermissionDto)
+  readonly permissions?: RolePermissionDto[];
 } 
