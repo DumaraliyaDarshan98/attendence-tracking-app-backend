@@ -32,6 +32,12 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, ResponseData<T
     const request = ctx.getRequest();
     const statusCode = response.statusCode;
 
+    // Add CORS headers
+    response.header('Access-Control-Allow-Origin', '*');
+    response.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
+    response.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, Accept, Origin, X-Requested-With');
+    response.header('Access-Control-Allow-Credentials', 'true');
+
     return next.handle().pipe(
       map((data) => {
         // Determine status message based on HTTP status code
