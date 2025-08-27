@@ -139,3 +139,29 @@ export class DocumentsListResponseDto {
   })
   totalPages: number;
 }
+
+export class MultipleDocumentUploadResponseDto {
+  @ApiProperty({
+    description: 'Array of uploaded document information',
+    example: [
+      {
+        fileName: "site_plan.pdf",
+        fileUrl: "https://example.com/uploads/site_plan.pdf",
+        fileType: "application/pdf",
+        fileSize: 1024000
+      },
+      {
+        fileName: "site_plan.pdf",
+        fileUrl: "https://example.com/uploads/site_plan.pdf",
+        fileType: "application/pdf",
+        fileSize: 1024000
+      }
+    ]
+  })
+  Data: Array<{
+    fileName: string;
+    fileUrl: string;
+    fileType: string;
+    fileSize: number;
+  }>;
+}
