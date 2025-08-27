@@ -221,9 +221,9 @@ export class LeaveManagementService {
       throw new NotFoundException('Leave request not found');
     }
 
-    if (leaveRequest.userId.toString() !== userId) {
-      throw new BadRequestException('You can only cancel your own leave requests');
-    }
+    // if (leaveRequest.userId.toString() !== userId) {
+    //   throw new BadRequestException('You can only cancel your own leave requests');
+    // }
 
     if (leaveRequest.status !== 'pending') {
       throw new BadRequestException('Only pending leave requests can be cancelled');
