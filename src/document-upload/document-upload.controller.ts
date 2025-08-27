@@ -149,11 +149,7 @@ export class DocumentUploadController {
     try {
       const documents = await this.documentUploadService.uploadMultipleDocuments(files, userId);
 
-      return {
-        success: true,
-        message: `${documents.length} documents uploaded successfully`,
-        data: documents
-      };
+      return documents;
     } catch (error) {
       throw new BadRequestException(`Failed to upload documents: ${error.message}`);
     }
