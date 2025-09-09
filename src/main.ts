@@ -13,22 +13,27 @@ process.env.TZ = 'Asia/Kolkata';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   
-  // Enable CORS
+  // // Enable CORS
+  // app.enableCors({
+  //   origin: [
+  //     'http://localhost:4200', // Angular dev server
+  //     'http://localhost:3000', // Alternative Angular port
+  //     'http://127.0.0.1:4200',
+  //     'http://127.0.0.1:3000',
+  //     'http://localhost:8080', // Alternative port
+  //     'http://localhost:4000',  // Alternative port
+  //     'http://147.93.111.92:3100'
+  //   ],
+  //   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  //   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+  //   credentials: true,
+  //   preflightContinue: false,
+  //   optionsSuccessStatus: 204
+  // });
+  
   app.enableCors({
-    origin: [
-      'http://localhost:4200', // Angular dev server
-      'http://localhost:3000', // Alternative Angular port
-      'http://127.0.0.1:4200',
-      'http://127.0.0.1:3000',
-      'http://localhost:8080', // Alternative port
-      'http://localhost:4000',  // Alternative port
-      'http://147.93.111.92:3100'
-    ],
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],
+    origin: true, // dynamically reflect request origin
     credentials: true,
-    preflightContinue: false,
-    optionsSuccessStatus: 204
   });
   
   // Serve static files from uploads directory
