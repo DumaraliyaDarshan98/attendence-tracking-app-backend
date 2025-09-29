@@ -10,10 +10,12 @@ import { AttendanceModule } from './attendance/attendance.module';
 import { LeaveManagementModule } from './leave-management/leave-management.module';
 import { TourManagementModule } from './tour-management/tour-management.module';
 import { DocumentUploadModule } from './document-upload/document-upload.module';
+import { StateModule } from './state/state.module';
+import { CityModule } from './city/city.module';
 import { SeederService } from './database/seeder.service';
 
 @Module({
-  imports: [DatabaseModule, UsersModule, AuthModule, RolesModule, PermissionsModule, AttendanceModule, LeaveManagementModule, TourManagementModule, DocumentUploadModule],
+  imports: [DatabaseModule, UsersModule, AuthModule, RolesModule, PermissionsModule, AttendanceModule, LeaveManagementModule, TourManagementModule, DocumentUploadModule, StateModule, CityModule],
   controllers: [AppController],
   providers: [AppService, SeederService],
 })
