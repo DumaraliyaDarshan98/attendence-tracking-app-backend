@@ -209,8 +209,8 @@ export class UsersController {
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
   @ApiResponse({ status: 409, description: 'User with this email already exists' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async create(@Body() createUserDto: CreateUserDto) {
-    return this.usersService.create(createUserDto);
+  async create(@Request() req, @Body() createUserDto: CreateUserDto) {
+    return this.usersService.create(createUserDto, { _id: req.user?._id, email: req.user?.email });
   }
 
   @Get()
@@ -384,8 +384,8 @@ export class UsersController {
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(id, updateUserDto);
+  async update(@Request() req, @Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+    return this.usersService.update(id, updateUserDto, { _id: req.user?._id, email: req.user?.email });
   }
 
   @Delete(':id')
@@ -396,7 +396,7 @@ export class UsersController {
   @ApiResponse({ status: 204, description: 'User deleted successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async remove(@Param('id') id: string) {
-    return this.usersService.remove(id);
+  async remove(@Request() req, @Param('id') id: string) {
+    return this.usersService.remove(id, { _id: req.user?._id, email: req.user?.email });
   }
 } 

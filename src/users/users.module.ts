@@ -7,6 +7,7 @@ import { AuthGuard } from '../guards/auth.guard';
 import { JwtModule } from '@nestjs/jwt';
 import { appConfig } from '../config/app.config';
 import { RolesModule } from '../roles/roles.module';
+import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { RolesModule } from '../roles/roles.module';
       signOptions: { expiresIn: appConfig.jwtExpiresIn },
     }),
     forwardRef(() => RolesModule),
+    forwardRef(() => AuditLogsModule),
   ],
   controllers: [UsersController],
   providers: [UsersService, AuthGuard],

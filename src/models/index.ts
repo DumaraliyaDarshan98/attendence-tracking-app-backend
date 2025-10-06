@@ -7,3 +7,4 @@ export * from './leave-request.model';
 export * from './tour.model';
 export * from './state.model';
 export * from './city.model';
+export * from './audit-log.model';

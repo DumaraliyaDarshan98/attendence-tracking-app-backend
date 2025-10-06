@@ -142,7 +142,7 @@ export class RolesService {
   private validatePermissions(permissions: RolePermission[]): void {
     const validModules = [
       'users', 'roles', 'permissions', 'attendance', 'leave', 
-      'holiday', 'tour', 'timelog', 'reports'
+      'holiday', 'tour', 'timelog', 'reports', 'audit'
     ];
     
     const validActions = [

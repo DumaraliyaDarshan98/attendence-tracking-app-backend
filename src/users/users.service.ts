@@ -3,6 +3,8 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { User, UserDocument } from '../models/user.model';
 import { RolesService } from '../roles/roles.service';
+import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { computeDiff } from '../common/utils/diff.util';
 import * as bcrypt from 'bcrypt';
 import { DateUtil } from '../common/utils';
 
@@ -11,9 +13,10 @@ export class UsersService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private rolesService: RolesService,
+    private auditLogsService: AuditLogsService,
   ) { }
 
-  async create(createUserDto: any): Promise<User> {
+  async create(createUserDto: any, actor?: { _id: string; email?: string } | null): Promise<User> {
     const { 
       email, 
       password, 
@@ -57,7 +60,19 @@ export class UsersService {
       pincode,
     });
 
-    return user.save();
+    const saved = await user.save();
+    // Audit log
+    await this.auditLogsService.log({
+      module: 'users',
+      action: 'create',
+      entityId: (saved._id as any).toString(),
+      entityType: 'User',
+      performedBy: (actor?._id as any) || (saved._id as any),
+      performedByEmail: actor?.email,
+      changes: Object.keys(createUserDto).map((k) => ({ field: k, newValue: (createUserDto as any)[k] })),
+      metadata: { email: saved.email },
+    });
+    return saved;
   }
 
   async findAll(): Promise<User[]> {
@@ -76,13 +91,14 @@ export class UsersService {
     return this.userModel.findOne({ email }).exec();
   }
 
-  async update(id: string, updateUserDto: any): Promise<User> {
+  async update(id: string, updateUserDto: any, actor?: { _id: string; email?: string } | null): Promise<User> {
     const { password, ...updateData } = updateUserDto;
 
     if (password) {
       updateData.password = await bcrypt.hash(password, 10);
     }
 
+    const before = await this.userModel.findById(id).lean();
     const user = await this.userModel
       .findByIdAndUpdate(id, updateData, { new: true, select: '-password' })
       .exec();
@@ -90,13 +106,39 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
+    if (before) {
+      const changes = computeDiff(before as any, { ...before, ...updateData }, { ignore: ['password', '__v', 'updatedAt', 'createdAt'] });
+      await this.auditLogsService.log({
+        module: 'users',
+        action: 'update',
+        entityId: (user._id as any).toString(),
+        entityType: 'User',
+        performedBy: (actor?._id as any) || (user._id as any),
+        performedByEmail: actor?.email,
+        changes,
+        metadata: { email: user.email },
+      });
+    }
     return user;
   }
 
-  async remove(id: string): Promise<void> {
+  async remove(id: string, actor?: { _id: string; email?: string } | null): Promise<void> {
+    const before = await this.userModel.findById(id).lean();
     const result = await this.userModel.findByIdAndDelete(id).exec();
     if (!result) {
       throw new NotFoundException('User not found');
+    }
+    if (before) {
+      await this.auditLogsService.log({
+        module: 'users',
+        action: 'delete',
+        entityId: id,
+        entityType: 'User',
+        performedBy: (actor?._id as any) || id,
+        performedByEmail: actor?.email,
+        changes: Object.keys(before).map((k) => ({ field: k, oldValue: (before as any)[k] })),
+        metadata: { email: (before as any).email },
+      });
     }
   }
 

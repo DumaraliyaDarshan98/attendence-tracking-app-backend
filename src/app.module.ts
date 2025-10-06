@@ -13,9 +13,10 @@ import { DocumentUploadModule } from './document-upload/document-upload.module';
 import { StateModule } from './state/state.module';
 import { CityModule } from './city/city.module';
 import { SeederService } from './database/seeder.service';
+import { AuditLogsModule } from './audit-logs/audit-logs.module';
 
 @Module({
-  imports: [DatabaseModule, UsersModule, AuthModule, RolesModule, PermissionsModule, AttendanceModule, LeaveManagementModule, TourManagementModule, DocumentUploadModule, StateModule, CityModule],
+  imports: [DatabaseModule, UsersModule, AuthModule, RolesModule, PermissionsModule, AttendanceModule, LeaveManagementModule, TourManagementModule, DocumentUploadModule, StateModule, CityModule, AuditLogsModule],
   controllers: [AppController],
   providers: [AppService, SeederService],
 })
