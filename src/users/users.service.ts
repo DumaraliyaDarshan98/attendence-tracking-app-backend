@@ -72,15 +72,23 @@ export class UsersService {
       changes: Object.keys(createUserDto).map((k) => ({ field: k, newValue: (createUserDto as any)[k] })),
       metadata: { email: saved.email },
     });
-    return saved;
+    // Populate role details if present
+    const populated = await saved.populate({ path: 'role', select: '_id name displayName description isActive' });
+    return populated as unknown as User;
   }
 
   async findAll(): Promise<User[]> {
-    return this.userModel.find({}, { password: 0 }).exec();
+    return this.userModel
+      .find({}, { password: 0 })
+      .populate({ path: 'role', select: '_id name displayName description isActive' })
+      .exec();
   }
 
   async findOne(id: string): Promise<User> {
-    const user = await this.userModel.findById(id, { password:0 }).exec();
+    const user = await this.userModel
+      .findById(id, { password: 0 })
+      .populate({ path: 'role', select: '_id name displayName description isActive' })
+      .exec();
     if (!user) {
       throw new NotFoundException('User not found');
     }
@@ -101,6 +109,7 @@ export class UsersService {
     const before = await this.userModel.findById(id).lean();
     const user = await this.userModel
       .findByIdAndUpdate(id, updateData, { new: true, select: '-password' })
+      .populate({ path: 'role', select: '_id name displayName description isActive' })
       .exec();
 
     if (!user) {

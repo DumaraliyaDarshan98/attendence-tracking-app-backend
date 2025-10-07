@@ -2,12 +2,11 @@ import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuditLogsService } from './audit-logs.service';
 import { AuthGuard } from '../guards/auth.guard';
-import { PermissionGuard } from '../guards/permission.guard';
 import { RequirePermissions } from '../decorators/permissions.decorator';
 
 @ApiTags('Audit Logs')
 @Controller('audit-logs')
-@UseGuards(AuthGuard, PermissionGuard)
+@UseGuards(AuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class AuditLogsController {
   constructor(private readonly auditLogsService: AuditLogsService) {}
@@ -35,6 +34,25 @@ export class AuditLogsController {
       action,
       entityId,
       performedBy,
+      page: page ? parseInt(page) : 1,
+      limit: limit ? parseInt(limit) : 10,
+    });
+  }
+
+  @Get('by-entity')
+  @RequirePermissions('audit:read')
+  @ApiOperation({ summary: 'Get audit logs by module and entityId' })
+  @ApiQuery({ name: 'module', required: true })
+  @ApiQuery({ name: 'entityId', required: true })
+  async listByEntity(
+    @Query('module') module: string,
+    @Query('entityId') entityId: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    return this.auditLogsService.list({
+      module,
+      entityId,
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 10,
     });
