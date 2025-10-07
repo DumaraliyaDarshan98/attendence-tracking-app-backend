@@ -1,4 +1,6 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Delete, Body, Param, Query, Request, UseGuards, UploadedFile, UseInterceptors, Res } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -398,5 +400,36 @@ export class UsersController {
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async remove(@Request() req, @Param('id') id: string) {
     return this.usersService.remove(id, { _id: req.user?._id, email: req.user?.email });
+  }
+
+  @Post('import')
+  @UseGuards(AuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Import users from Excel (Protected endpoint)' })
+  @ApiResponse({ status: 200, description: 'Import completed with summary' })
+  async importUsers(@Request() req, @UploadedFile() file: Express.Multer.File) {
+    if (!file || !file.buffer) {
+      return { code: 400, status: 'Bad Request', message: 'No file uploaded' };
+    }
+    const summary = await this.usersService.importFromExcel(file.buffer, { _id: req.user?._id, email: req.user?.email });
+    return {
+      code: 200,
+      status: 'OK',
+      data: summary,
+      timestamp: DateUtil.toISOStringIST(new Date()),
+      path: '/api/users/import'
+    };
+  }
+
+  @Get('import/template')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Download Excel import template (Protected endpoint)' })
+  async downloadImportTemplate(@Res() res: Response) {
+    const buffer = await this.usersService.generateImportTemplate();
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="users_import_template.xlsx"');
+    res.send(buffer);
   }
 } 
