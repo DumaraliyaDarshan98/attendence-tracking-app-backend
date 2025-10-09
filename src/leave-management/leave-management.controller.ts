@@ -919,4 +919,21 @@ export class LeaveManagementController {
     };
   }
 
+  @Delete('leave-requests/:id')
+  @ApiOperation({ summary: 'Delete leave request' })
+  @ApiParam({ name: 'id', description: 'Leave request ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
+  @ApiResponse({ status: 200, description: 'Leave request deleted successfully' })
+  @ApiResponse({ status: 404, description: 'Leave request not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async deleteLeaveRequest(@Param('id') id: string) {
+    await this.leaveManagementService.deleteLeaveRequest(id);
+    return {
+      code: 200,
+      status: 'OK',
+      data: { message: 'Leave request deleted successfully' },
+      timestamp: DateUtil.toISOStringIST(new Date()),
+      path: `/api/leave-management/leave-requests/${id}`
+    };
+  }
+
 }
