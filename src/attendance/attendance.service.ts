@@ -1,6 +1,6 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Attendance, AttendanceDocument } from '../models/attendance.model';
 import { DateUtil } from '../common/utils';
 
@@ -212,5 +212,108 @@ export class AttendanceService {
       limit,
       totalPages,
     };
+  }
+
+  // Admin methods for creating, updating, and deleting attendance records
+  async createAttendanceRecord(createData: {
+    userId: string;
+    date: string;
+    checkInTime: string;
+    checkOutTime?: string;
+    status: 'present' | 'absent' | 'late' | 'half-day';
+    notes?: string;
+    sessionNumber?: number;
+    checkInLatitude?: number;
+    checkInLongitude?: number;
+    checkOutLatitude?: number;
+    checkOutLongitude?: number;
+  }): Promise<Attendance> {
+    const date = DateUtil.parseDateToISTStartOfDay(createData.date);
+    const checkInTime = new Date(`${createData.date}T${createData.checkInTime}`);
+    const checkOutTime = createData.checkOutTime ? new Date(`${createData.date}T${createData.checkOutTime}`) : undefined;
+    
+    // Calculate total hours if checkout time is provided
+    let totalHours: number | undefined;
+    if (checkOutTime) {
+      totalHours = (checkOutTime.getTime() - checkInTime.getTime()) / (1000 * 60 * 60);
+      totalHours = Math.round(totalHours * 100) / 100;
+    }
+
+    const attendance = new this.attendanceModel({
+      userId: new Types.ObjectId(createData.userId),
+      date: date,
+      checkInTime: checkInTime,
+      checkOutTime: checkOutTime,
+      isCheckedOut: !!checkOutTime,
+      totalHours: totalHours,
+      status: createData.status,
+      notes: createData.notes,
+      sessionNumber: createData.sessionNumber || 1,
+      checkInLatitude: createData.checkInLatitude,
+      checkInLongitude: createData.checkInLongitude,
+      checkOutLatitude: createData.checkOutLatitude,
+      checkOutLongitude: createData.checkOutLongitude,
+    });
+
+    return await attendance.save();
+  }
+
+  async updateAttendanceRecord(id: string, updateData: {
+    userId?: string;
+    date?: string;
+    checkInTime?: string;
+    checkOutTime?: string;
+    status?: 'present' | 'absent' | 'late' | 'half-day';
+    notes?: string;
+    sessionNumber?: number;
+    checkInLatitude?: number;
+    checkInLongitude?: number;
+    checkOutLatitude?: number;
+    checkOutLongitude?: number;
+  }): Promise<Attendance> {
+    const attendance = await this.attendanceModel.findById(id);
+    if (!attendance) {
+      throw new NotFoundException('Attendance record not found');
+    }
+
+    // Update fields
+    if (updateData.userId) attendance.userId = new Types.ObjectId(updateData.userId);
+    if (updateData.date) attendance.date = DateUtil.parseDateToISTStartOfDay(updateData.date);
+    if (updateData.checkInTime) {
+      const date = updateData.date || attendance.date.toISOString().split('T')[0];
+      attendance.checkInTime = new Date(`${date}T${updateData.checkInTime}`);
+    }
+    if (updateData.checkOutTime) {
+      const date = updateData.date || attendance.date.toISOString().split('T')[0];
+      attendance.checkOutTime = new Date(`${date}T${updateData.checkOutTime}`);
+    }
+    if (updateData.status) attendance.status = updateData.status;
+    if (updateData.notes !== undefined) attendance.notes = updateData.notes;
+    if (updateData.sessionNumber) attendance.sessionNumber = updateData.sessionNumber;
+    if (updateData.checkInLatitude !== undefined) attendance.checkInLatitude = updateData.checkInLatitude;
+    if (updateData.checkInLongitude !== undefined) attendance.checkInLongitude = updateData.checkInLongitude;
+    if (updateData.checkOutLatitude !== undefined) attendance.checkOutLatitude = updateData.checkOutLatitude;
+    if (updateData.checkOutLongitude !== undefined) attendance.checkOutLongitude = updateData.checkOutLongitude;
+
+    // Recalculate total hours if times are updated
+    if (attendance.checkInTime && attendance.checkOutTime) {
+      attendance.totalHours = (attendance.checkOutTime.getTime() - attendance.checkInTime.getTime()) / (1000 * 60 * 60);
+      attendance.totalHours = Math.round(attendance.totalHours * 100) / 100;
+      attendance.isCheckedOut = true;
+    } else {
+      attendance.isCheckedOut = false;
+      attendance.totalHours = undefined;
+    }
+
+    return await attendance.save();
+  }
+
+  async deleteAttendanceRecord(id: string): Promise<void> {
+    const attendance = await this.attendanceModel.findById(id);
+    if (!attendance) {
+      throw new NotFoundException('Attendance record not found');
+    }
+
+    await this.attendanceModel.findByIdAndDelete(id);
   }
 }

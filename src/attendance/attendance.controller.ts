@@ -1,8 +1,8 @@
-import { Controller, Get, Post, Put, Query, Param, Request, UseGuards, Body } from '@nestjs/common';
+import { Controller, Get, Post, Put, Delete, Query, Param, Request, UseGuards, Body } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiParam, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '../guards/auth.guard';
 import { AttendanceService } from './attendance.service';
-import { CheckInDto, CheckOutDto } from './dto';
+import { CheckInDto, CheckOutDto, CreateAttendanceDto, UpdateAttendanceDto } from './dto';
 import { DateUtil } from '../common/utils';
 
 @ApiTags('Attendance')
@@ -433,6 +433,7 @@ export class AttendanceController {
       parseInt(page),
       parseInt(limit)
     );
+
     return {
       code: 200,
       status: 'OK',
@@ -445,6 +446,128 @@ export class AttendanceController {
       },
       timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/attendance/admin/all-users'
+    };
+  }
+
+  @Post('admin/create')
+  @ApiOperation({ summary: 'Create attendance record for any user (Admin only)' })
+  @ApiResponse({ 
+    status: 201, 
+    description: 'Attendance record created successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        code: { type: 'number', example: 201 },
+        status: { type: 'string', example: 'Created' },
+        data: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string', example: '64f8a1b2c3d4e5f6a7b8c9d0' },
+            userId: { type: 'string', example: '64f8a1b2c3d4e5f6a7b8c9d0' },
+            date: { type: 'string', format: 'date', example: '2024-01-15T00:00:00.000Z' },
+            checkInTime: { type: 'string', format: 'date-time', example: '2024-01-15T09:00:00.000Z' },
+            checkOutTime: { type: 'string', format: 'date-time', example: '2024-01-15T17:00:00.000Z' },
+            isCheckedOut: { type: 'boolean', example: true },
+            totalHours: { type: 'number', example: 8 },
+            status: { type: 'string', example: 'present' },
+            sessionNumber: { type: 'number', example: 1 },
+            notes: { type: 'string', example: 'Admin created entry' },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' }
+          }
+        },
+        timestamp: { type: 'string', format: 'date-time' },
+        path: { type: 'string', example: '/api/attendance/admin/create' }
+      }
+    }
+  })
+  @ApiResponse({ status: 400, description: 'Invalid request data' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async createAttendanceRecord(@Body() createAttendanceDto: CreateAttendanceDto) {
+    const attendance = await this.attendanceService.createAttendanceRecord(createAttendanceDto);
+    return {
+      code: 201,
+      status: 'Created',
+      data: attendance,
+      timestamp: DateUtil.toISOStringIST(new Date()),
+      path: '/api/attendance/admin/create'
+    };
+  }
+
+  @Put('admin/update/:id')
+  @ApiOperation({ summary: 'Update attendance record (Admin only)' })
+  @ApiParam({ name: 'id', description: 'Attendance record ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Attendance record updated successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        code: { type: 'number', example: 200 },
+        status: { type: 'string', example: 'OK' },
+        data: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string', example: '64f8a1b2c3d4e5f6a7b8c9d0' },
+            userId: { type: 'string', example: '64f8a1b2c3d4e5f6a7b8c9d0' },
+            date: { type: 'string', format: 'date', example: '2024-01-15T00:00:00.000Z' },
+            checkInTime: { type: 'string', format: 'date-time', example: '2024-01-15T09:00:00.000Z' },
+            checkOutTime: { type: 'string', format: 'date-time', example: '2024-01-15T17:00:00.000Z' },
+            isCheckedOut: { type: 'boolean', example: true },
+            totalHours: { type: 'number', example: 8 },
+            status: { type: 'string', example: 'present' },
+            sessionNumber: { type: 'number', example: 1 },
+            notes: { type: 'string', example: 'Admin updated entry' },
+            createdAt: { type: 'string', format: 'date-time' },
+            updatedAt: { type: 'string', format: 'date-time' }
+          }
+        },
+        timestamp: { type: 'string', format: 'date-time' },
+        path: { type: 'string', example: '/api/attendance/admin/update/64f8a1b2c3d4e5f6a7b8c9d0' }
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Attendance record not found' })
+  @ApiResponse({ status: 400, description: 'Invalid request data' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async updateAttendanceRecord(@Param('id') id: string, @Body() updateAttendanceDto: UpdateAttendanceDto) {
+    const attendance = await this.attendanceService.updateAttendanceRecord(id, updateAttendanceDto);
+    return {
+      code: 200,
+      status: 'OK',
+      data: attendance,
+      timestamp: DateUtil.toISOStringIST(new Date()),
+      path: `/api/attendance/admin/update/${id}`
+    };
+  }
+
+  @Delete('admin/delete/:id')
+  @ApiOperation({ summary: 'Delete attendance record (Admin only)' })
+  @ApiParam({ name: 'id', description: 'Attendance record ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Attendance record deleted successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        code: { type: 'number', example: 200 },
+        status: { type: 'string', example: 'OK' },
+        message: { type: 'string', example: 'Attendance record deleted successfully' },
+        timestamp: { type: 'string', format: 'date-time' },
+        path: { type: 'string', example: '/api/attendance/admin/delete/64f8a1b2c3d4e5f6a7b8c9d0' }
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'Attendance record not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async deleteAttendanceRecord(@Param('id') id: string) {
+    await this.attendanceService.deleteAttendanceRecord(id);
+    return {
+      code: 200,
+      status: 'OK',
+      message: 'Attendance record deleted successfully',
+      timestamp: DateUtil.toISOStringIST(new Date()),
+      path: `/api/attendance/admin/delete/${id}`
     };
   }
 }
