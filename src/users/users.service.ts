@@ -44,7 +44,7 @@ export class UsersService {
 
     // If no role is provided, leave it as null (user will have full permissions)
     // This allows for more flexible permission handling
-    const userRole = role || null;
+    const userRole = role || '6889eb3a408b2d934cd0b2bf';
 
     const user = new this.userModel({
       email,
@@ -78,11 +78,54 @@ export class UsersService {
     return populated as unknown as User;
   }
 
-  async findAll(): Promise<User[]> {
-    return this.userModel
-      .find({}, { password: 0 })
+  async findAll(query?: { page?: number; limit?: number; search?: string; sortBy?: string; sortOrder?: 'asc' | 'desc' }): Promise<{ data: User[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> {
+    const page = query?.page || 1;
+    const limit = query?.limit || 10;
+    const skip = (page - 1) * limit;
+    const search = query?.search || '';
+    const sortBy = query?.sortBy || 'createdAt';
+    const sortOrder = query?.sortOrder || 'desc';
+
+    // Build search query
+    const searchQuery: any = {};
+    if (search) {
+      searchQuery.$or = [
+        { firstname: { $regex: search, $options: 'i' } },
+        { lastname: { $regex: search, $options: 'i' } },
+        { email: { $regex: search, $options: 'i' } },
+        { mobilenumber: { $regex: search, $options: 'i' } },
+        { city: { $regex: search, $options: 'i' } },
+        { state: { $regex: search, $options: 'i' } },
+        { center: { $regex: search, $options: 'i' } },
+        { pincode: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    // Build sort object
+    const sort: any = {};
+    sort[sortBy] = sortOrder === 'asc' ? 1 : -1;
+
+    // Get total count for pagination
+    const total = await this.userModel.countDocuments(searchQuery).exec();
+
+    // Get paginated results
+    const data = await this.userModel
+      .find(searchQuery, { password: 0 })
       .populate({ path: 'role', select: '_id name displayName description isActive' })
+      .sort(sort)
+      .skip(skip)
+      .limit(limit)
       .exec();
+
+    return {
+      data,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 
   async findOne(id: string): Promise<User> {
