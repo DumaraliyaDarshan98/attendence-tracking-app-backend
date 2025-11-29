@@ -2,6 +2,7 @@ import { Injectable, CanActivate, ExecutionContext, UnauthorizedException } from
 import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
+import { SessionsService } from '../sessions/sessions.service';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -9,6 +10,7 @@ export class AuthGuard implements CanActivate {
         private reflector: Reflector,
         private jwtService: JwtService,
         private usersService: UsersService,
+        private sessionsService: SessionsService,
     ) { }
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -21,11 +23,21 @@ export class AuthGuard implements CanActivate {
 
         try {
             const payload = await this.jwtService.verifyAsync(token);
+            
+            // Check if session is still active
+            const session = await this.sessionsService.findSessionByToken(token);
+            if (!session || !session.isActive) {
+                throw new UnauthorizedException('Session expired or invalid. Please login again.');
+            }
+
             const user = await this.usersService.findOne(payload.sub);
 
             if (!user) {
                 throw new UnauthorizedException('User not found');
             }
+
+            // Update last activity
+            await this.sessionsService.updateLastActivity(token);
 
             // Add user to request for use in controllers
             request.user = user;

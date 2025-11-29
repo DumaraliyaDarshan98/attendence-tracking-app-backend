@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Attendance, AttendanceDocument } from '../models/attendance.model';
@@ -6,6 +6,8 @@ import { DateUtil } from '../common/utils';
 
 @Injectable()
 export class AttendanceService {
+  private readonly logger = new Logger(AttendanceService.name);
+
   constructor(
     @InjectModel(Attendance.name) private attendanceModel: Model<AttendanceDocument>,
   ) {}
@@ -17,7 +19,10 @@ export class AttendanceService {
       // Check if user has an open session (checked in but not checked out) for today
       const openSession = await this.attendanceModel.findOne({
         userId,
-        date: today,
+        date: {
+          $gte: today,
+          $lt: DateUtil.getCurrentDateISTEndOfDay(),
+        },
         isCheckedOut: false,
       });
 
@@ -30,7 +35,7 @@ export class AttendanceService {
 
       const attendance = new this.attendanceModel({
         userId,
-        date: today,
+        date: today, // Use start of day for date matching
         checkInTime: DateUtil.getCurrentDateIST(),
         status: 'present',
         sessionNumber: nextSessionNumber,
@@ -47,7 +52,7 @@ export class AttendanceService {
 
         const attendance = new this.attendanceModel({
           userId,
-          date: today,
+          date: today, // Use start of day for date matching
           checkInTime: DateUtil.getCurrentDateIST(),
           status: 'present',
           sessionNumber: nextSessionNumber,
@@ -62,9 +67,15 @@ export class AttendanceService {
   }
 
   private async getNextSessionNumber(userId: string, date: Date): Promise<number> {
+    const endOfDay = new Date(date);
+    endOfDay.setHours(23, 59, 59, 999);
+    
     const todaySessions = await this.attendanceModel.find({
       userId,
-      date: date,
+      date: {
+        $gte: date,
+        $lte: endOfDay,
+      },
     }).sort({ sessionNumber: -1 }).limit(1);
 
     return todaySessions.length > 0 ? todaySessions[0].sessionNumber + 1 : 1;
@@ -76,7 +87,10 @@ export class AttendanceService {
     // Check if user has an open session for today
     const openSession = await this.attendanceModel.findOne({
       userId,
-      date: today,
+      date: {
+        $gte: today,
+        $lt: DateUtil.getCurrentDateISTEndOfDay(),
+      },
       isCheckedOut: false,
     });
 
@@ -89,7 +103,7 @@ export class AttendanceService {
 
     const attendance = new this.attendanceModel({
       userId,
-      date: today,
+      date: today, // Use start of day for date matching
       checkInTime: DateUtil.getCurrentDateIST(),
       status: 'present',
       sessionNumber: nextSessionNumber,
@@ -106,7 +120,10 @@ export class AttendanceService {
     // Find the most recent open session for today
     const attendance = await this.attendanceModel.findOne({
       userId,
-      date: today,
+      date: {
+        $gte: today,
+        $lt: DateUtil.getCurrentDateISTEndOfDay(),
+      },
       isCheckedOut: false,
     }).sort({ sessionNumber: -1 });
 
@@ -154,10 +171,14 @@ export class AttendanceService {
 
   async getTodayAttendance(userId: string): Promise<Attendance[]> {
     const today = DateUtil.getCurrentDateISTStartOfDay();
+    const endOfDay = DateUtil.getCurrentDateISTEndOfDay();
 
     return this.attendanceModel.find({
       userId,
-      date: today,
+      date: {
+        $gte: today,
+        $lte: endOfDay,
+      },
     }).sort({ sessionNumber: -1 }).exec();
   }
 
@@ -212,5 +233,77 @@ export class AttendanceService {
       limit,
       totalPages,
     };
+  }
+
+  /**
+   * Automatically check out all open sessions at end of day (11:59:59 PM IST)
+   * This method is called by a scheduled task at midnight IST
+   * It checks out all sessions that were checked in but not checked out for the previous day
+   */
+  async autoCheckoutOpenSessions(): Promise<{ checkedOut: number; errors: number }> {
+    // Get previous day's date range in IST (the day that just ended at midnight)
+    // When this runs at midnight IST, we need to checkout sessions from the day that just ended
+    const now = new Date();
+    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
+    const istNow = new Date(now.getTime() + istOffset);
+    
+    // Get previous day (the day that just ended)
+    const previousDayStart = new Date(istNow);
+    previousDayStart.setDate(previousDayStart.getDate() - 1);
+    previousDayStart.setHours(0, 0, 0, 0);
+    
+    const previousDayEnd = new Date(previousDayStart);
+    previousDayEnd.setHours(23, 59, 59, 999);
+    
+    // Convert to UTC for MongoDB query (date field is stored as start of day in UTC)
+    const previousDayStartUTC = new Date(previousDayStart.getTime() - istOffset);
+    const previousDayEndUTC = new Date(previousDayEnd.getTime() - istOffset);
+
+    // Find all open sessions from the previous day
+    // The date field is stored as start of day, so we query by date range
+    const openSessions = await this.attendanceModel.find({
+      isCheckedOut: false,
+      date: {
+        $gte: previousDayStartUTC,
+        $lt: new Date(previousDayStartUTC.getTime() + 24 * 60 * 60 * 1000), // Next day start
+      },
+    });
+
+    let checkedOut = 0;
+    let errors = 0;
+
+    // Set checkout time to end of previous day (11:59:59 PM IST)
+    // Convert to UTC for storage (same format as checkInTime)
+    const checkoutTimeIST = new Date(previousDayEnd);
+    const checkoutTimeUTC = new Date(checkoutTimeIST.getTime() - istOffset);
+
+    // Check out each open session
+    for (const session of openSessions) {
+      try {
+        // Calculate total hours from check-in to 11:59:59 PM IST of the previous day
+        const totalHours = (checkoutTimeUTC.getTime() - session.checkInTime.getTime()) / (1000 * 60 * 60);
+        
+        // Ensure totalHours is not negative (safety check)
+        if (totalHours < 0) {
+          console.warn(`Session ${session._id} has negative hours, skipping`);
+          errors++;
+          continue;
+        }
+        
+        session.checkOutTime = checkoutTimeUTC;
+        session.isCheckedOut = true;
+        session.totalHours = Math.round(totalHours * 100) / 100;
+        // Keep existing check-in location, no checkout location for auto-checkout
+        
+        await session.save();
+        checkedOut++;
+      } catch (error) {
+        console.error(`Error auto-checking out session ${session._id}:`, error);
+        errors++;
+      }
+    }
+
+    console.log(`[Auto-Checkout] Completed at ${new Date().toISOString()}: ${checkedOut} sessions checked out, ${errors} errors`);
+    return { checkedOut, errors };
   }
 }

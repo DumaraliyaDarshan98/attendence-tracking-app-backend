@@ -13,7 +13,8 @@ export class DateUtil {
    * Get current date (start of day) in IST
    */
   static getCurrentDateISTStartOfDay(): Date {
-    const istDate = this.getCurrentDateIST();
+    // const istDate = this.getCurrentDateIST();
+    const  istDate = new Date();
     istDate.setHours(0, 0, 0, 0);
     return istDate;
   }
@@ -22,7 +23,8 @@ export class DateUtil {
    * Get end of current date in IST
    */
   static getCurrentDateISTEndOfDay(): Date {
-    const istDate = this.getCurrentDateIST();
+    // const istDate = this.getCurrentDateIST();
+    const istDate = new Date();
     istDate.setHours(23, 59, 59, 999);
     return istDate;
   }

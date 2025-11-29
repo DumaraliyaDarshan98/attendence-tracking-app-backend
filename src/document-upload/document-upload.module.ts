@@ -6,6 +6,7 @@ import { DocumentUploadController } from './document-upload.controller';
 import { DocumentUploadService } from './document-upload.service';
 import { Document, DocumentSchema } from '../models/document.model';
 import { UsersModule } from '../users/users.module';
+import { SessionsModule } from '../sessions/sessions.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { UsersModule } from '../users/users.module';
       signOptions: { expiresIn: '24h' },
     }),
     UsersModule,
+    SessionsModule,
   ],
   controllers: [DocumentUploadController],
   providers: [DocumentUploadService],

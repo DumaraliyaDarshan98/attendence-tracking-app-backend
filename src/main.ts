@@ -13,7 +13,7 @@ process.env.TZ = 'Asia/Kolkata';
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   
-  // // Enable CORS
+  // Enable CORS
   // app.enableCors({
   //   origin: [
   //     'http://localhost:4200', // Angular dev server
@@ -22,7 +22,10 @@ async function bootstrap() {
   //     'http://127.0.0.1:3000',
   //     'http://localhost:8080', // Alternative port
   //     'http://localhost:4000',  // Alternative port
-  //     'http://147.93.111.92:3100'
+  //     'http://147.93.111.92:3100',
+  //     'https://cf0972146c0c.ngrok-free.app',
+  //     'http://127.0.0.1:4040/',
+  //     'http://localhost:4200/'
   //   ],
   //   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   //   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With'],

@@ -432,4 +432,40 @@ export class UsersController {
     res.setHeader('Content-Disposition', 'attachment; filename="users_import_template.xlsx"');
     res.send(buffer);
   }
+
+  @Post(':id/logout-all-devices')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Logout user from all devices (Admin endpoint)' })
+  @ApiParam({ name: 'id', description: 'User ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'User logged out from all devices successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        code: { type: 'number', example: 200 },
+        status: { type: 'string', example: 'OK' },
+        message: { 
+          type: 'string', 
+          example: 'User logged out from all devices successfully', 
+          description: 'Success message' 
+        },
+        timestamp: { type: 'string', format: 'date-time' },
+        path: { type: 'string', example: '/api/users/:id/logout-all-devices' }
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async logoutFromAllDevices(@Request() req, @Param('id') id: string) {
+    await this.usersService.logoutFromAllDevices(id, { _id: req.user?._id, email: req.user?.email });
+    return {
+      code: 200,
+      status: 'OK',
+      message: 'User logged out from all devices successfully',
+      timestamp: DateUtil.toISOStringIST(new Date()),
+      path: `/api/users/${id}/logout-all-devices`
+    };
+  }
 } 

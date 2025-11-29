@@ -8,6 +8,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { appConfig } from '../config/app.config';
 import { RolesModule } from '../roles/roles.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
+import { SessionsModule } from '../sessions/sessions.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { AuditLogsModule } from '../audit-logs/audit-logs.module';
     }),
     forwardRef(() => RolesModule),
     forwardRef(() => AuditLogsModule),
+    SessionsModule,
   ],
   controllers: [UsersController],
   providers: [UsersService, AuthGuard],

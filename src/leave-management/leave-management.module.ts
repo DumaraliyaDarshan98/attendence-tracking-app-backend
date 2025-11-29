@@ -6,6 +6,7 @@ import { LeaveManagementService } from './leave-management.service';
 import { Holiday, HolidaySchema } from '../models/holiday.model';
 import { LeaveRequest, LeaveRequestSchema } from '../models/leave-request.model';
 import { UsersModule } from '../users/users.module';
+import { SessionsModule } from '../sessions/sessions.module';
 import { appConfig } from '../config/app.config';
 
 @Module({
@@ -18,7 +19,8 @@ import { appConfig } from '../config/app.config';
       secret: appConfig.jwtSecret,
       signOptions: { expiresIn: appConfig.jwtExpiresIn },
     }),
-    UsersModule
+    UsersModule,
+    SessionsModule
   ],
   controllers: [LeaveManagementController],
   providers: [LeaveManagementService],

@@ -1,11 +1,14 @@
 import { Module, OnModuleInit } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
+import { ScheduleModule } from '@nestjs/schedule';
 import { Attendance, AttendanceSchema } from '../models/attendance.model';
 import { AttendanceController } from './attendance.controller';
 import { AttendanceService } from './attendance.service';
+import { AttendanceSchedulerService } from './attendance-scheduler.service';
 import { AttendanceIndexService } from '../database/init-attendance-indexes';
 import { UsersModule } from '../users/users.module';
+import { SessionsModule } from '../sessions/sessions.module';
 import { appConfig } from '../config/app.config';
 
 @Module({
@@ -17,10 +20,12 @@ import { appConfig } from '../config/app.config';
       secret: appConfig.jwtSecret,
       signOptions: { expiresIn: appConfig.jwtExpiresIn },
     }),
+    ScheduleModule.forRoot(), // Enable scheduled tasks
     UsersModule,
+    SessionsModule,
   ],
   controllers: [AttendanceController],
-  providers: [AttendanceService, AttendanceIndexService],
+  providers: [AttendanceService, AttendanceSchedulerService, AttendanceIndexService],
   exports: [AttendanceService],
 })
 export class AttendanceModule implements OnModuleInit {

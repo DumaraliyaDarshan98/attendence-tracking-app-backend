@@ -9,6 +9,7 @@ import { appConfig } from '../config/app.config';
 import { AuthGuard } from '../guards/auth.guard';
 import { PermissionGuard } from '../guards/permission.guard';
 import { RolesModule } from '../roles/roles.module';
+import { SessionsModule } from '../sessions/sessions.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { RolesModule } from '../roles/roles.module';
     ]),
     forwardRef(() => UsersModule),
     forwardRef(() => RolesModule),
+    SessionsModule,
     JwtModule.register({
       secret: appConfig.jwtSecret,
       signOptions: { expiresIn: appConfig.jwtExpiresIn },

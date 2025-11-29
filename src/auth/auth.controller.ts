@@ -1,9 +1,10 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UnauthorizedException, NotFoundException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { Controller, Post, Body, HttpCode, HttpStatus, UnauthorizedException, NotFoundException, Request, UseGuards } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { AuthGuard } from '../guards/auth.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -66,12 +67,46 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
-  async login(@Body() loginDto: LoginDto) {
+  @ApiResponse({ status: 409, description: 'User already logged in on another device' })
+  async login(@Body() loginDto: LoginDto, @Request() req) {
     const user = await this.authService.validateUser(loginDto.email, loginDto.password);
     if (!user) {
       throw new UnauthorizedException('Invalid credentials');
     }
-    return this.authService.login(user);
+    
+    // Extract device info and IP address
+    const deviceInfo = req.headers['user-agent'] || 'Unknown Device';
+    const ipAddress = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress || 'Unknown IP';
+    
+    return this.authService.login(user, deviceInfo, ipAddress);
+  }
+
+  @Post('logout')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Logout user from current device' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Logout successful',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { 
+          type: 'string', 
+          example: 'Logged out successfully', 
+          description: 'Success message' 
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async logout(@Request() req) {
+    const token = req.headers.authorization?.replace('Bearer ', '') || '';
+    await this.authService.logout(token);
+    return {
+      message: 'Logged out successfully',
+    };
   }
 
   @Post('send-otp')

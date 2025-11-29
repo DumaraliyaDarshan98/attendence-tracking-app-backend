@@ -1,7 +1,8 @@
-import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException, ConflictException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { RolesService } from '../roles/roles.service';
+import { SessionsService } from '../sessions/sessions.service';
 import { UserDocument } from '../models/user.model';
 import { RolePermission } from '../models/role.model';
 import { Types } from 'mongoose';
@@ -13,6 +14,7 @@ export class AuthService {
     private usersService: UsersService,
     private rolesService: RolesService,
     private jwtService: JwtService,
+    private sessionsService: SessionsService,
   ) { }
 
   async validateUser(email: string, password: string): Promise<any> {
@@ -25,8 +27,22 @@ export class AuthService {
     return null;
   }
 
-  async login(user: any) {
-    const payload = { email: user.email, sub: user._id?.toString() || user.id?.toString() || '', role: user.role };
+  async login(user: any, deviceInfo?: string, ipAddress?: string) {
+    const userId = user._id?.toString() || user.id?.toString() || '';
+    
+    // Check if user already has an active session
+    const existingSession = await this.sessionsService.findActiveSessionByUser(userId);
+    if (existingSession) {
+      throw new ConflictException(
+        'You are currently logged in on another device. Please log out from all devices and try again, or contact admin for reset login details.'
+      );
+    }
+
+    const payload = { email: user.email, sub: userId, role: user.role };
+    const token = this.jwtService.sign(payload);
+    
+    // Create new session
+    await this.sessionsService.createSession(userId, token, deviceInfo, ipAddress);
     
     // Get user role details and permissions
     let roleDetails: {
@@ -65,9 +81,9 @@ export class AuthService {
     }
     
     return {
-      access_token: this.jwtService.sign(payload),
+      access_token: token,
       user: {
-        id: user._id?.toString() || user.id?.toString() || '',
+        id: userId,
         email: user.email,
         firstname: user.firstname,
         lastname: user.lastname,
@@ -76,6 +92,14 @@ export class AuthService {
         isSuperAdmin: isSuperAdmin
       },
     };
+  }
+
+  async logout(token: string): Promise<void> {
+    await this.sessionsService.invalidateSession(token);
+  }
+
+  async logoutFromAllDevices(userId: string): Promise<void> {
+    await this.sessionsService.invalidateAllUserSessions(userId);
   }
 
   async generateResetToken(email: string): Promise<string> {

@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { User, UserDocument } from '../models/user.model';
 import { RolesService } from '../roles/roles.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
+import { SessionsService } from '../sessions/sessions.service';
 import { computeDiff } from '../common/utils/diff.util';
 import * as bcrypt from 'bcrypt';
 import * as XLSX from 'xlsx';
@@ -15,6 +16,7 @@ export class UsersService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private rolesService: RolesService,
     private auditLogsService: AuditLogsService,
+    private sessionsService: SessionsService,
   ) { }
 
   async create(createUserDto: any, actor?: { _id: string; email?: string } | null): Promise<User> {
@@ -78,11 +80,27 @@ export class UsersService {
     return populated as unknown as User;
   }
 
-  async findAll(): Promise<User[]> {
-    return this.userModel
+  async findAll(): Promise<any[]> {
+    const users = await this.userModel
       .find({}, { password: 0 })
       .populate({ path: 'role', select: '_id name displayName description isActive' })
       .exec();
+    
+    // Add login status for each user
+    const usersWithLoginStatus = await Promise.all(
+      users.map(async (user) => {
+        const userObj = user.toObject();
+        const activeSession = await this.sessionsService.findActiveSessionByUser(
+          (user._id as any).toString()
+        );
+        return {
+          ...userObj,
+          isLoggedIn: !!activeSession,
+        };
+      })
+    );
+    
+    return usersWithLoginStatus;
   }
 
   async findOne(id: string): Promise<User> {
@@ -231,5 +249,27 @@ export class UsersService {
     ]], { origin: 'A2' });
     const buffer: Buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
     return buffer;
+  }
+
+  async logoutFromAllDevices(userId: string, actor?: { _id: string; email?: string } | null): Promise<void> {
+    const user = await this.userModel.findById(userId).exec();
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    
+    await this.sessionsService.invalidateAllUserSessions(userId);
+    
+    // Audit log
+    await this.auditLogsService.log({
+      module: 'users',
+      // action: 'logout_all_devices',
+      action: 'update',
+      entityId: userId,
+      entityType: 'User',
+      performedBy: (actor?._id as any) || userId,
+      performedByEmail: actor?.email,
+      changes: [],
+      metadata: { email: user.email, action: 'logout_all_devices' },
+    });
   }
 } 

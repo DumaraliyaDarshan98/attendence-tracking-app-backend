@@ -5,6 +5,7 @@ import { TourManagementController } from './tour-management.controller';
 import { Tour, TourSchema } from '../models/tour.model';
 import { JwtModule } from '@nestjs/jwt';
 import { UsersModule } from '../users/users.module';
+import { SessionsModule } from '../sessions/sessions.module';
 import { appConfig } from '../config/app.config';
 
 @Module({
@@ -15,6 +16,7 @@ import { appConfig } from '../config/app.config';
       signOptions: { expiresIn: appConfig.jwtExpiresIn },
     }),
     UsersModule,
+    SessionsModule,
   ],
   controllers: [TourManagementController],
   providers: [TourManagementService],
