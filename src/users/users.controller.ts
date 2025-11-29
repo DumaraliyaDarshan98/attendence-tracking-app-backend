@@ -279,7 +279,14 @@ export class UsersController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findAll(@Query() query: PaginationQueryDto) {
-    return this.usersService.findAll();
+    const result = await this.usersService.findAll({
+      page: query.page,
+      limit: query.limit,
+      search: query.search,
+      sortBy: query.sortBy,
+      sortOrder: query.sortOrder,
+    });
+    return result;
   }
 
   @Get(':id')

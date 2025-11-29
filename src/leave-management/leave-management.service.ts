@@ -233,6 +233,14 @@ export class LeaveManagementService {
     return await leaveRequest.save();
   }
 
+  async deleteLeaveRequest(id: string): Promise<void> {
+    const existing = await this.leaveRequestModel.findById(id);
+    if (!existing) {
+      throw new NotFoundException('Leave request not found');
+    }
+    await this.leaveRequestModel.findByIdAndDelete(id);
+  }
+
   async getLeaveRequestsByDateRange(startDate: string, endDate: string): Promise<LeaveRequest[]> {
     const start = new Date(startDate);
     const end = new Date(endDate);
