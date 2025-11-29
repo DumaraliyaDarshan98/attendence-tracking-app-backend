@@ -121,7 +121,7 @@ export class UsersService {
     
     // Add login status for each user
     const usersWithLoginStatus = await Promise.all(
-      users.map(async (user) => {
+      data.map(async (user) => {
         const userObj = user.toObject();
         const activeSession = await this.sessionsService.findActiveSessionByUser(
           (user._id as any).toString()
@@ -133,10 +133,8 @@ export class UsersService {
       })
     );
     
-    return usersWithLoginStatus;
-
     return {
-      data,
+      data: usersWithLoginStatus,
       pagination: {
         page,
         limit,
