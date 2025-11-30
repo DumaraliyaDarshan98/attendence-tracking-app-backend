@@ -80,7 +80,7 @@ export class UsersService {
     return populated as unknown as User;
   }
 
-  async findAll(query?: { page?: number; limit?: number; search?: string; sortBy?: string; sortOrder?: 'asc' | 'desc' }): Promise<{ data: User[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> {
+  async findAll(query?: { page?: number; limit?: number; search?: string; sortBy?: string; sortOrder?: 'asc' | 'desc'; state?: string; city?: string; center?: string }): Promise<{ data: User[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> {
     const page = query?.page || 1;
     const limit = query?.limit || 10;
     const skip = (page - 1) * limit;
@@ -101,6 +101,21 @@ export class UsersService {
         { center: { $regex: search, $options: 'i' } },
         { pincode: { $regex: search, $options: 'i' } },
       ];
+    }
+
+    // Add filter for state
+    if (query?.state) {
+      searchQuery.state = { $regex: query.state, $options: 'i' };
+    }
+
+    // Add filter for city
+    if (query?.city) {
+      searchQuery.city = { $regex: query.city, $options: 'i' };
+    }
+
+    // Add filter for center (taluka)
+    if (query?.center) {
+      searchQuery.center = { $regex: query.center, $options: 'i' };
     }
 
     // Build sort object
@@ -152,7 +167,7 @@ export class UsersService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return user;
+    return user as unknown as User;
   }
 
   async findByEmail(email: string): Promise<UserDocument | null> {

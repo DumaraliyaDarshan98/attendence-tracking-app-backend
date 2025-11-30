@@ -51,4 +51,25 @@ export class PaginationQueryDto {
   })
   @IsOptional()
   sortOrder?: 'asc' | 'desc' = 'desc';
+
+  @ApiPropertyOptional({
+    description: 'Filter by state',
+    example: 'Maharashtra',
+  })
+  @IsOptional()
+  state?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by city',
+    example: 'Mumbai',
+  })
+  @IsOptional()
+  city?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by center/taluka',
+    example: 'Downtown',
+  })
+  @IsOptional()
+  center?: string;
 } 

@@ -67,7 +67,6 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
-  @ApiResponse({ status: 409, description: 'User already logged in on another device' })
   async login(@Body() loginDto: LoginDto, @Request() req) {
     const user = await this.authService.validateUser(loginDto.email, loginDto.password);
     if (!user) {

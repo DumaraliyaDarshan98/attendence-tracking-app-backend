@@ -224,6 +224,9 @@ export class UsersController {
   @ApiQuery({ name: 'search', required: false, description: 'Search term', example: 'john' })
   @ApiQuery({ name: 'sortBy', required: false, description: 'Sort field', example: 'createdAt' })
   @ApiQuery({ name: 'sortOrder', required: false, description: 'Sort order', example: 'desc' })
+  @ApiQuery({ name: 'state', required: false, description: 'Filter by state', example: 'Maharashtra' })
+  @ApiQuery({ name: 'city', required: false, description: 'Filter by city', example: 'Mumbai' })
+  @ApiQuery({ name: 'center', required: false, description: 'Filter by center/taluka', example: 'Downtown' })
   @ApiResponse({ 
     status: 200, 
     description: 'Users retrieved successfully',
@@ -285,6 +288,9 @@ export class UsersController {
       search: query.search,
       sortBy: query.sortBy,
       sortOrder: query.sortOrder,
+      state: query.state,
+      city: query.city,
+      center: query.center,
     });
     return result;
   }

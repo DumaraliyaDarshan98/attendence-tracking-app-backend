@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, NotFoundException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { RolesService } from '../roles/roles.service';
@@ -29,19 +29,11 @@ export class AuthService {
 
   async login(user: any, deviceInfo?: string, ipAddress?: string) {
     const userId = user._id?.toString() || user.id?.toString() || '';
-    
-    // Check if user already has an active session
-    const existingSession = await this.sessionsService.findActiveSessionByUser(userId);
-    if (existingSession) {
-      throw new ConflictException(
-        'You are currently logged in on another device. Please log out from all devices and try again, or contact admin for reset login details.'
-      );
-    }
 
     const payload = { email: user.email, sub: userId, role: user.role };
     const token = this.jwtService.sign(payload);
     
-    // Create new session
+    // Create new session (allows multiple devices to be logged in simultaneously)
     await this.sessionsService.createSession(userId, token, deviceInfo, ipAddress);
     
     // Get user role details and permissions
