@@ -191,7 +191,8 @@ export class AttendanceService {
     date: string,
     userId?: string,
     page: number = 1,
-    limit: number = 10
+    limit: number = 10,
+    search?: string
   ): Promise<{ data: Attendance[]; total: number; page: number; limit: number; totalPages: number }> {
     const startDate = DateUtil.parseDateToISTStartOfDay(date);
     const endDate = DateUtil.parseDateToISTEndOfDay(date);
@@ -212,22 +213,101 @@ export class AttendanceService {
     // Calculate pagination
     const skip = (page - 1) * limit;
 
-    // Execute queries
-    const [data, total] = await Promise.all([
-      this.attendanceModel
-        .find(query)
-        .populate('userId', 'firstname lastname email')
-        .sort({ date: -1, sessionNumber: -1 })
-        .skip(skip)
-        .limit(limit)
-        .exec(),
-      this.attendanceModel.countDocuments(query)
-    ]);
+    // Build aggregation pipeline
+    const pipeline: any[] = [
+      {
+        $match: query
+      },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'user'
+        }
+      },
+      {
+        $unwind: {
+          path: '$user',
+          preserveNullAndEmptyArrays: true
+        }
+      }
+    ];
 
+    // Add search filter if provided (after lookup to search in user fields)
+    if (search && search.trim()) {
+      const searchTerm = search.trim();
+      pipeline.push({
+        $match: {
+          $or: [
+            { 'user.firstname': { $regex: searchTerm, $options: 'i' } },
+            { 'user.lastname': { $regex: searchTerm, $options: 'i' } },
+            { 'user.email': { $regex: searchTerm, $options: 'i' } },
+            { 'user.mobilenumber': { $regex: searchTerm, $options: 'i' } },
+            {
+              $expr: {
+                $regexMatch: {
+                  input: { $concat: ['$user.firstname', ' ', '$user.lastname'] },
+                  regex: searchTerm,
+                  options: 'i'
+                }
+              }
+            }
+          ]
+        }
+      });
+    }
+
+    // Add sorting and pagination
+    pipeline.push(
+      {
+        $sort: { date: -1, sessionNumber: -1 }
+      },
+      {
+        $facet: {
+          data: [
+            { $skip: skip },
+            { $limit: limit },
+            {
+              $project: {
+                _id: 1,
+                userId: {
+                  _id: '$user._id',
+                  firstname: '$user.firstname',
+                  lastname: '$user.lastname',
+                  email: '$user.email',
+                  mobilenumber: '$user.mobilenumber'
+                },
+                date: 1,
+                checkInTime: 1,
+                checkOutTime: 1,
+                isCheckedOut: 1,
+                totalHours: 1,
+                status: 1,
+                sessionNumber: 1,
+                checkInLatitude: 1,
+                checkInLongitude: 1,
+                checkOutLatitude: 1,
+                checkOutLongitude: 1,
+                createdAt: 1,
+                updatedAt: 1
+              }
+            }
+          ],
+          total: [{ $count: 'count' }]
+        }
+      }
+    );
+
+    // Execute aggregation
+    const result = await this.attendanceModel.aggregate(pipeline).exec();
+
+    const data = result[0]?.data || [];
+    const total = result[0]?.total[0]?.count || 0;
     const totalPages = Math.ceil(total / limit);
 
     return {
-      data,
+      data: data as any,
       total,
       page,
       limit,

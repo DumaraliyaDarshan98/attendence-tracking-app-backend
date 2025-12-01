@@ -41,6 +41,9 @@ export class User {
   @Prop({ required: false })
   pincode?: string;
 
+  @Prop({ required: false })
+  designation?: string;
+
   @Prop({ default: true })
   isActive: boolean;
 }

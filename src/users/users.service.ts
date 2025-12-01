@@ -32,7 +32,8 @@ export class UsersService {
       city,
       state,
       center,
-      pincode
+      pincode,
+      designation
     } = createUserDto;
 
     // Check if user already exists
@@ -61,6 +62,7 @@ export class UsersService {
       state,
       center,
       pincode,
+      designation,
     });
 
     const saved = await user.save();
@@ -100,6 +102,7 @@ export class UsersService {
         { state: { $regex: search, $options: 'i' } },
         { center: { $regex: search, $options: 'i' } },
         { pincode: { $regex: search, $options: 'i' } },
+        { designation: { $regex: search, $options: 'i' } },
       ];
     }
 
@@ -252,6 +255,7 @@ export class UsersService {
         const state = String(row.state || '').trim();
         const center = String(row.center || row.taluka || '').trim();
         const pincode = String(row.pincode || row.zip || '').trim();
+        const designation = String(row.designation || row.Designation || '').trim();
         const roleNameOrId = String(row.role || row.Role || '').trim();
 
         if (!email || !firstname || !lastname || !mobilenumber || !addressline1 || !city || !state || !pincode) {
@@ -273,14 +277,14 @@ export class UsersService {
         const existing = await this.userModel.findOne({ email }).exec();
         if (existing) {
           await this.userModel.updateOne({ _id: existing._id }, {
-            firstname, lastname, mobilenumber, addressline1, addressline2, city, state, center, pincode, ...(roleId ? { role: roleId } : {})
+            firstname, lastname, mobilenumber, addressline1, addressline2, city, state, center, pincode, designation, ...(roleId ? { role: roleId } : {})
           }).exec();
           updated++;
         } else {
           const password = String(row.password || 'Password@123');
           const hashedPassword = await bcrypt.hash(password, 10);
           await this.userModel.create({
-            email, password: hashedPassword, firstname, lastname, role: roleId, mobilenumber, addressline1, addressline2, city, state, center, pincode
+            email, password: hashedPassword, firstname, lastname, role: roleId, mobilenumber, addressline1, addressline2, city, state, center, pincode, designation
           });
           created++;
         }
@@ -294,14 +298,14 @@ export class UsersService {
 
   async generateImportTemplate(): Promise<Buffer> {
     const headers = [[
-      'firstname', 'lastname', 'email', 'mobilenumber', 'addressline1', 'addressline2', 'city', 'state', 'center', 'pincode', 'role', 'password'
+      'firstname', 'lastname', 'email', 'mobilenumber', 'addressline1', 'addressline2', 'city', 'state', 'center', 'pincode', 'designation', 'role', 'password'
     ]];
     const ws = XLSX.utils.aoa_to_sheet(headers);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Users');
     // Add a second row with hints (optional)
     XLSX.utils.sheet_add_aoa(ws, [[
-      'John', 'Doe', 'john@example.com', '+11234567890', '123 Main St', '', 'New York', 'NY', 'Manhattan', '10001', 'admin', 'Password@123'
+      'John', 'Doe', 'john@example.com', '+11234567890', '123 Main St', '', 'New York', 'NY', 'Manhattan', '10001', 'Software Engineer', 'admin', 'Password@123'
     ]], { origin: 'A2' });
     const buffer: Buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
     return buffer;

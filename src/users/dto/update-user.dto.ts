@@ -101,6 +101,14 @@ export class UpdateUserDto {
   readonly pincode?: string;
 
   @ApiPropertyOptional({
+    description: 'Designation or job title of the user',
+    example: 'Software Engineer',
+  })
+  @IsOptional()
+  @IsString()
+  readonly designation?: string;
+
+  @ApiPropertyOptional({
     description: 'Whether the user account is active',
     example: true,
   })

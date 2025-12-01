@@ -86,6 +86,13 @@ export class UserResponseDto {
   pincode?: string;
 
   @ApiProperty({
+    description: 'Designation or job title of the user',
+    example: 'Software Engineer',
+    required: false,
+  })
+  designation?: string;
+
+  @ApiProperty({
     description: 'Whether the user account is active',
     example: true,
   })

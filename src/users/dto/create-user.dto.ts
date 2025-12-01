@@ -94,4 +94,12 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   readonly pincode?: string;
+
+  @ApiPropertyOptional({
+    description: 'Designation or job title of the user',
+    example: 'Software Engineer',
+  })
+  @IsOptional()
+  @IsString()
+  readonly designation?: string;
 } 

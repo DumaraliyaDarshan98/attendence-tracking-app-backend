@@ -367,6 +367,7 @@ export class AttendanceController {
   @ApiQuery({ name: 'userId', required: false, description: 'Filter by specific user ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
   @ApiQuery({ name: 'page', required: false, description: 'Page number', example: 1 })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page', example: 10 })
+  @ApiQuery({ name: 'search', required: false, description: 'Search by employee name, email, or mobile number', example: 'john' })
   @ApiResponse({ 
     status: 200, 
     description: 'All users attendance retrieved successfully',
@@ -425,13 +426,15 @@ export class AttendanceController {
     @Query('date') date: string,
     @Query('userId') userId?: string,
     @Query('page') page: string = '1',
-    @Query('limit') limit: string = '10'
+    @Query('limit') limit: string = '10',
+    @Query('search') search?: string
   ) {
     const result = await this.attendanceService.getAllUsersAttendance(
       date,
       userId,
       parseInt(page),
-      parseInt(limit)
+      parseInt(limit),
+      search
     );
 
     return {
