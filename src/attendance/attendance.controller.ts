@@ -10,12 +10,12 @@ import { DateUtil } from '../common/utils';
 @UseGuards(AuthGuard)
 @ApiBearerAuth('JWT-auth')
 export class AttendanceController {
-  constructor(private readonly attendanceService: AttendanceService) {}
+  constructor(private readonly attendanceService: AttendanceService) { }
 
   @Post('checkin')
   @ApiOperation({ summary: 'User check-in for the day' })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'Check-in successful',
     schema: {
       type: 'object',
@@ -61,8 +61,8 @@ export class AttendanceController {
 
   @Post('start-new-session')
   @ApiOperation({ summary: 'Start a new session for the same day' })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'New session started successfully',
     schema: {
       type: 'object',
@@ -108,8 +108,8 @@ export class AttendanceController {
 
   @Post('checkout')
   @ApiOperation({ summary: 'User check-out for the current session' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Check-out successful',
     schema: {
       type: 'object',
@@ -160,8 +160,8 @@ export class AttendanceController {
 
   @Get('today')
   @ApiOperation({ summary: 'Get today\'s attendance records' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Today\'s attendance records retrieved successfully',
     schema: {
       type: 'object',
@@ -209,8 +209,8 @@ export class AttendanceController {
   @Get('date/:date')
   @ApiOperation({ summary: 'Get attendance records for a specific date' })
   @ApiParam({ name: 'date', description: 'Date in YYYY-MM-DD format', example: '2024-01-15' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Attendance records retrieved successfully',
     schema: {
       type: 'object',
@@ -262,8 +262,8 @@ export class AttendanceController {
   @ApiOperation({ summary: 'Get attendance records for a date range' })
   @ApiQuery({ name: 'startDate', required: true, description: 'Start date (YYYY-MM-DD)', example: '2024-01-01' })
   @ApiQuery({ name: 'endDate', required: true, description: 'End date (YYYY-MM-DD)', example: '2024-01-31' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Attendance records retrieved successfully',
     schema: {
       type: 'object',
@@ -315,8 +315,8 @@ export class AttendanceController {
 
   @Get('all')
   @ApiOperation({ summary: 'Get all attendance records for current user' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'All attendance records retrieved successfully',
     schema: {
       type: 'object',
@@ -368,8 +368,11 @@ export class AttendanceController {
   @ApiQuery({ name: 'page', required: false, description: 'Page number', example: 1 })
   @ApiQuery({ name: 'limit', required: false, description: 'Items per page', example: 10 })
   @ApiQuery({ name: 'search', required: false, description: 'Search by employee name, email, or mobile number', example: 'john' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiQuery({ name: 'state', required: false, description: 'Filter by state', example: 'Maharashtra' })
+  @ApiQuery({ name: 'city', required: false, description: 'Filter by city', example: 'Mumbai' })
+  @ApiQuery({ name: 'center', required: false, description: 'Filter by center', example: 'Downtown' })
+  @ApiResponse({
+    status: 200,
     description: 'All users attendance retrieved successfully',
     schema: {
       type: 'object',
@@ -427,14 +430,20 @@ export class AttendanceController {
     @Query('userId') userId?: string,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
-    @Query('search') search?: string
+    @Query('search') search?: string,
+    @Query('state') state?: string,
+    @Query('city') city?: string,
+    @Query('center') center?: string,
   ) {
     const result = await this.attendanceService.getAllUsersAttendance(
       date,
       userId,
       parseInt(page),
       parseInt(limit),
-      search
+      search,
+      state,
+      city,
+      center
     );
 
     return {
@@ -454,8 +463,8 @@ export class AttendanceController {
 
   @Post('admin/create')
   @ApiOperation({ summary: 'Create attendance record for any user (Admin only)' })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'Attendance record created successfully',
     schema: {
       type: 'object',
@@ -500,8 +509,8 @@ export class AttendanceController {
   @Put('admin/update/:id')
   @ApiOperation({ summary: 'Update attendance record (Admin only)' })
   @ApiParam({ name: 'id', description: 'Attendance record ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Attendance record updated successfully',
     schema: {
       type: 'object',
@@ -547,8 +556,8 @@ export class AttendanceController {
   @Delete('admin/delete/:id')
   @ApiOperation({ summary: 'Delete attendance record (Admin only)' })
   @ApiParam({ name: 'id', description: 'Attendance record ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Attendance record deleted successfully',
     schema: {
       type: 'object',

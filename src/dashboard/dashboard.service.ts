@@ -22,19 +22,19 @@ export class DashboardService {
         const [totalEmployees, presentToday, onLeave, newRequests] = await Promise.all([
             // Count active employees with roles
             this.userModel.countDocuments({ isActive: true, role: { $ne: null } }),
-            
+
             // Count distinct users who checked in today
             this.attendanceModel.distinct('userId', {
                 date: { $gte: today, $lte: endOfDay }
             }).then(ids => ids.length),
-            
+
             // Count employees on approved leave today
             this.leaveRequestModel.countDocuments({
                 startDate: { $lte: endOfDay },
                 endDate: { $gte: today },
                 status: 'approved'
             }),
-            
+
             // Count pending leave requests
             this.leaveRequestModel.countDocuments({ status: 'pending' }),
         ]);
@@ -103,23 +103,23 @@ export class DashboardService {
         // Optimized single aggregation query to get all stats at once
         const stats = await this.userModel.aggregate([
             // Match active users with centers
-            { 
-                $match: { 
-                    isActive: true, 
-                    center: { 
-                        $exists: true, 
-                        $nin: [null, ''] 
+            {
+                $match: {
+                    isActive: true,
+                    center: {
+                        $exists: true,
+                        $nin: [null, '']
                     },
                     role: { $ne: null }
-                } 
+                }
             },
             // Group by center to get total count
-            { 
-                $group: { 
-                    _id: '$center', 
+            {
+                $group: {
+                    _id: '$center',
                     total: { $sum: 1 },
                     userIds: { $push: '$_id' }
-                } 
+                }
             },
             // Lookup attendance for today
             {

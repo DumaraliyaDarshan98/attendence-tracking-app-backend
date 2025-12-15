@@ -18,55 +18,27 @@ export class DashboardController {
         description: 'Dashboard stats retrieved successfully',
     })
     async getStats() {
-        const stats = await this.dashboardService.getStats();
-        return {
-            code: 200,
-            status: 'OK',
-            data: stats,
-            timestamp: DateUtil.toISOStringIST(new Date()),
-            path: '/api/dashboard/stats'
-        };
+        return this.dashboardService.getStats();
     }
 
     @Get('activity')
     @ApiOperation({ summary: 'Get recent activity feed' })
     @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
     async getActivity(@Query('limit') limit: number = 10) {
-        const activity = await this.dashboardService.getRecentActivity(limit);
-        return {
-            code: 200,
-            status: 'OK',
-            data: activity,
-            timestamp: DateUtil.toISOStringIST(new Date()),
-            path: '/api/dashboard/activity'
-        };
+        return this.dashboardService.getRecentActivity(limit);
     }
 
     @Get('department-stats')
     @ApiOperation({ summary: 'Get attendance statistics by department/center' })
     async getDepartmentStats() {
-        const stats = await this.dashboardService.getDepartmentStats();
-        return {
-            code: 200,
-            status: 'OK',
-            data: stats,
-            timestamp: DateUtil.toISOStringIST(new Date()),
-            path: '/api/dashboard/department-stats'
-        };
+        return this.dashboardService.getDepartmentStats();
     }
 
     @Get('leave-requests')
     @ApiOperation({ summary: 'Get pending leave requests' })
     @ApiQuery({ name: 'limit', required: false, type: Number, example: 5 })
     async getPendingLeaveRequests(@Query('limit') limit: number = 5) {
-        const requests = await this.dashboardService.getPendingLeaveRequests(limit);
-        return {
-            code: 200,
-            status: 'OK',
-            data: requests,
-            timestamp: DateUtil.toISOStringIST(new Date()),
-            path: '/api/dashboard/leave-requests'
-        };
+        return this.dashboardService.getPendingLeaveRequests(limit);
     }
 }
 

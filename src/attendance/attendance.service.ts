@@ -10,7 +10,7 @@ export class AttendanceService {
 
   constructor(
     @InjectModel(Attendance.name) private attendanceModel: Model<AttendanceDocument>,
-  ) {}
+  ) { }
 
   async checkIn(userId: string, location?: { latitude?: number; longitude?: number }): Promise<Attendance> {
     const today = DateUtil.getCurrentDateISTStartOfDay();
@@ -69,7 +69,7 @@ export class AttendanceService {
   private async getNextSessionNumber(userId: string, date: Date): Promise<number> {
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
-    
+
     const todaySessions = await this.attendanceModel.find({
       userId,
       date: {
@@ -192,7 +192,10 @@ export class AttendanceService {
     userId?: string,
     page: number = 1,
     limit: number = 10,
-    search?: string
+    search?: string,
+    state?: string,
+    city?: string,
+    center?: string
   ): Promise<{ data: Attendance[]; total: number; page: number; limit: number; totalPages: number }> {
     const startDate = DateUtil.parseDateToISTStartOfDay(date);
     const endDate = DateUtil.parseDateToISTEndOfDay(date);
@@ -233,6 +236,16 @@ export class AttendanceService {
         }
       }
     ];
+
+    // Add location filters
+    const matchStage: any = {};
+    if (state) matchStage['user.state'] = { $regex: state, $options: 'i' };
+    if (city) matchStage['user.city'] = { $regex: city, $options: 'i' };
+    if (center) matchStage['user.center'] = { $regex: center, $options: 'i' };
+
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
 
     // Add search filter if provided (after lookup to search in user fields)
     if (search && search.trim()) {
@@ -324,21 +337,21 @@ export class AttendanceService {
    */
   async autoCheckoutOpenSessions(): Promise<{ checkedOut: number; errors: number }> {
     this.logger.log('Starting midnight auto-checkout for all open sessions...');
-    
+
     // Get current UTC time
     const nowUTC = new Date();
-    
+
     // Calculate IST offset (IST is UTC+5:30)
     const istOffset = 5.5 * 60 * 60 * 1000;
-    
+
     // Get current time in IST
     const nowIST = new Date(nowUTC.getTime() + istOffset);
-    
+
     // Set checkout time to midnight IST (00:00:00 of current day in IST)
     const midnightIST = new Date(nowIST);
     midnightIST.setHours(0, 0, 0, 0);
     midnightIST.setMinutes(0, 0, 0);
-    
+
     // Convert midnight IST back to UTC for storage (checkInTime is stored as UTC)
     const midnightUTC = new Date(midnightIST.getTime() - istOffset);
 
@@ -355,19 +368,19 @@ export class AttendanceService {
       try {
         // Calculate total hours from check-in to midnight IST
         const totalHours = (midnightUTC.getTime() - session.checkInTime.getTime()) / (1000 * 60 * 60);
-        
+
         // Ensure totalHours is not negative (safety check)
         if (totalHours < 0) {
           this.logger.warn(`Session ${session._id} has negative hours, skipping`);
           errors++;
           continue;
         }
-        
+
         session.checkOutTime = midnightUTC;
         session.isCheckedOut = true;
         session.totalHours = Math.round(totalHours * 100) / 100;
         // Keep existing check-in location, no checkout location for auto-checkout
-        
+
         await session.save();
         checkedOut++;
         this.logger.debug(`Auto-checked out session ${session._id} at midnight for user ${session.userId}`);
@@ -390,10 +403,10 @@ export class AttendanceService {
    */
   async autoCheckoutAfter12Hours(): Promise<{ checkedOut: number; errors: number }> {
     this.logger.debug('Starting 12-hour auto-checkout for open sessions...');
-    
+
     // Get current UTC time (JavaScript Date objects are always in UTC internally)
     const nowUTC = new Date();
-    
+
     // Calculate 12 hours ago in UTC (12 hours = 12 * 60 * 60 * 1000 milliseconds)
     const twelveHoursAgoUTC = new Date(nowUTC.getTime() - (12 * 60 * 60 * 1000));
 
@@ -414,27 +427,27 @@ export class AttendanceService {
       try {
         // Calculate checkout time: exactly 12 hours after check-in
         const checkoutTimeUTC = new Date(session.checkInTime.getTime() + (12 * 60 * 60 * 1000));
-        
+
         // Ensure checkout time doesn't exceed current time (safety check)
-        const actualCheckoutTime = checkoutTimeUTC.getTime() > nowUTC.getTime() 
-          ? nowUTC 
+        const actualCheckoutTime = checkoutTimeUTC.getTime() > nowUTC.getTime()
+          ? nowUTC
           : checkoutTimeUTC;
-        
+
         // Calculate total hours (should be exactly 12 hours, or less if current time is used)
         const totalHours = (actualCheckoutTime.getTime() - session.checkInTime.getTime()) / (1000 * 60 * 60);
-        
+
         // Ensure totalHours is not negative (safety check)
         if (totalHours < 0) {
           this.logger.warn(`Session ${session._id} has negative hours, skipping`);
           errors++;
           continue;
         }
-        
+
         session.checkOutTime = actualCheckoutTime;
         session.isCheckedOut = true;
         session.totalHours = Math.round(totalHours * 100) / 100;
         // Keep existing check-in location, no checkout location for auto-checkout
-        
+
         await session.save();
         checkedOut++;
         this.logger.debug(`Auto-checked out session ${session._id} after 12 hours for user ${session.userId}`);
@@ -447,7 +460,7 @@ export class AttendanceService {
     if (checkedOut > 0 || errors > 0) {
       this.logger.log(`[12-Hour Auto-Checkout] Completed: ${checkedOut} sessions checked out, ${errors} errors`);
     }
-    
+
     return { checkedOut, errors };
   }
 
@@ -468,7 +481,7 @@ export class AttendanceService {
     const date = DateUtil.parseDateToISTStartOfDay(createData.date);
     const checkInTime = new Date(`${createData.date}T${createData.checkInTime}`);
     const checkOutTime = createData.checkOutTime ? new Date(`${createData.date}T${createData.checkOutTime}`) : undefined;
-    
+
     // Calculate total hours if checkout time is provided
     let totalHours: number | undefined;
     if (checkOutTime) {
