@@ -316,74 +316,138 @@ export class AttendanceService {
   }
 
   /**
-   * Automatically check out all open sessions at end of day (11:59:59 PM IST)
+   * Automatically check out all open sessions at midnight (12:00 AM IST)
    * This method is called by a scheduled task at midnight IST
-   * It checks out all sessions that were checked in but not checked out for the previous day
+   * It checks out ALL open sessions regardless of when they were checked in
+   * 
+   * Example: If user checks in at 8 PM IST, they will be auto-checked out at 12:00 AM IST (midnight)
    */
   async autoCheckoutOpenSessions(): Promise<{ checkedOut: number; errors: number }> {
-    // Get previous day's date range in IST (the day that just ended at midnight)
-    // When this runs at midnight IST, we need to checkout sessions from the day that just ended
-    const now = new Date();
-    const istOffset = 5.5 * 60 * 60 * 1000; // IST is UTC+5:30
-    const istNow = new Date(now.getTime() + istOffset);
+    this.logger.log('Starting midnight auto-checkout for all open sessions...');
     
-    // Get previous day (the day that just ended)
-    const previousDayStart = new Date(istNow);
-    previousDayStart.setDate(previousDayStart.getDate() - 1);
-    previousDayStart.setHours(0, 0, 0, 0);
+    // Get current UTC time
+    const nowUTC = new Date();
     
-    const previousDayEnd = new Date(previousDayStart);
-    previousDayEnd.setHours(23, 59, 59, 999);
+    // Calculate IST offset (IST is UTC+5:30)
+    const istOffset = 5.5 * 60 * 60 * 1000;
     
-    // Convert to UTC for MongoDB query (date field is stored as start of day in UTC)
-    const previousDayStartUTC = new Date(previousDayStart.getTime() - istOffset);
-    const previousDayEndUTC = new Date(previousDayEnd.getTime() - istOffset);
+    // Get current time in IST
+    const nowIST = new Date(nowUTC.getTime() + istOffset);
+    
+    // Set checkout time to midnight IST (00:00:00 of current day in IST)
+    const midnightIST = new Date(nowIST);
+    midnightIST.setHours(0, 0, 0, 0);
+    midnightIST.setMinutes(0, 0, 0);
+    
+    // Convert midnight IST back to UTC for storage (checkInTime is stored as UTC)
+    const midnightUTC = new Date(midnightIST.getTime() - istOffset);
 
-    // Find all open sessions from the previous day
-    // The date field is stored as start of day, so we query by date range
+    // Find ALL open sessions (regardless of date)
     const openSessions = await this.attendanceModel.find({
       isCheckedOut: false,
-      date: {
-        $gte: previousDayStartUTC,
-        $lt: new Date(previousDayStartUTC.getTime() + 24 * 60 * 60 * 1000), // Next day start
-      },
     });
 
     let checkedOut = 0;
     let errors = 0;
 
-    // Set checkout time to end of previous day (11:59:59 PM IST)
-    // Convert to UTC for storage (same format as checkInTime)
-    const checkoutTimeIST = new Date(previousDayEnd);
-    const checkoutTimeUTC = new Date(checkoutTimeIST.getTime() - istOffset);
-
     // Check out each open session
     for (const session of openSessions) {
       try {
-        // Calculate total hours from check-in to 11:59:59 PM IST of the previous day
-        const totalHours = (checkoutTimeUTC.getTime() - session.checkInTime.getTime()) / (1000 * 60 * 60);
+        // Calculate total hours from check-in to midnight IST
+        const totalHours = (midnightUTC.getTime() - session.checkInTime.getTime()) / (1000 * 60 * 60);
         
         // Ensure totalHours is not negative (safety check)
         if (totalHours < 0) {
-          console.warn(`Session ${session._id} has negative hours, skipping`);
+          this.logger.warn(`Session ${session._id} has negative hours, skipping`);
           errors++;
           continue;
         }
         
-        session.checkOutTime = checkoutTimeUTC;
+        session.checkOutTime = midnightUTC;
         session.isCheckedOut = true;
         session.totalHours = Math.round(totalHours * 100) / 100;
         // Keep existing check-in location, no checkout location for auto-checkout
         
         await session.save();
         checkedOut++;
+        this.logger.debug(`Auto-checked out session ${session._id} at midnight for user ${session.userId}`);
       } catch (error) {
-        console.error(`Error auto-checking out session ${session._id}:`, error);
+        this.logger.error(`Error auto-checking out session ${session._id}:`, error);
         errors++;
       }
     }
 
-    console.log(`[Auto-Checkout] Completed at ${new Date().toISOString()}: ${checkedOut} sessions checked out, ${errors} errors`);
+    this.logger.log(`[Midnight Auto-Checkout] Completed: ${checkedOut} sessions checked out, ${errors} errors`);
+    return { checkedOut, errors };
+  }
+
+  /**
+   * Automatically check out sessions that have been open for 12 hours or more
+   * This method is called by a scheduled task that runs every hour
+   * It checks out sessions where check-in time was 12+ hours ago
+   * 
+   * Example: If user checks in at 5 AM IST, they will be auto-checked out at 5 PM IST (12 hours later)
+   */
+  async autoCheckoutAfter12Hours(): Promise<{ checkedOut: number; errors: number }> {
+    this.logger.debug('Starting 12-hour auto-checkout for open sessions...');
+    
+    // Get current UTC time (JavaScript Date objects are always in UTC internally)
+    const nowUTC = new Date();
+    
+    // Calculate 12 hours ago in UTC (12 hours = 12 * 60 * 60 * 1000 milliseconds)
+    const twelveHoursAgoUTC = new Date(nowUTC.getTime() - (12 * 60 * 60 * 1000));
+
+    // Find all open sessions where check-in was 12+ hours ago
+    // checkInTime is stored as UTC Date in MongoDB
+    const openSessions = await this.attendanceModel.find({
+      isCheckedOut: false,
+      checkInTime: {
+        $lte: twelveHoursAgoUTC, // Check-in was 12+ hours ago
+      },
+    });
+
+    let checkedOut = 0;
+    let errors = 0;
+
+    // Check out each session that has been open for 12+ hours
+    for (const session of openSessions) {
+      try {
+        // Calculate checkout time: exactly 12 hours after check-in
+        const checkoutTimeUTC = new Date(session.checkInTime.getTime() + (12 * 60 * 60 * 1000));
+        
+        // Ensure checkout time doesn't exceed current time (safety check)
+        const actualCheckoutTime = checkoutTimeUTC.getTime() > nowUTC.getTime() 
+          ? nowUTC 
+          : checkoutTimeUTC;
+        
+        // Calculate total hours (should be exactly 12 hours, or less if current time is used)
+        const totalHours = (actualCheckoutTime.getTime() - session.checkInTime.getTime()) / (1000 * 60 * 60);
+        
+        // Ensure totalHours is not negative (safety check)
+        if (totalHours < 0) {
+          this.logger.warn(`Session ${session._id} has negative hours, skipping`);
+          errors++;
+          continue;
+        }
+        
+        session.checkOutTime = actualCheckoutTime;
+        session.isCheckedOut = true;
+        session.totalHours = Math.round(totalHours * 100) / 100;
+        // Keep existing check-in location, no checkout location for auto-checkout
+        
+        await session.save();
+        checkedOut++;
+        this.logger.debug(`Auto-checked out session ${session._id} after 12 hours for user ${session.userId}`);
+      } catch (error) {
+        this.logger.error(`Error auto-checking out session ${session._id}:`, error);
+        errors++;
+      }
+    }
+
+    if (checkedOut > 0 || errors > 0) {
+      this.logger.log(`[12-Hour Auto-Checkout] Completed: ${checkedOut} sessions checked out, ${errors} errors`);
+    }
+    
     return { checkedOut, errors };
   }
 

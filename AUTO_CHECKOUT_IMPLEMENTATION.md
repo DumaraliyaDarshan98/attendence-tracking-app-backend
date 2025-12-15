@@ -1,126 +1,89 @@
-# Automatic Checkout Implementation
+# Auto-Checkout Implementation
 
 ## Overview
-This document describes the implementation of automatic checkout functionality that runs at midnight IST (12:00 AM) to automatically check out all users who forgot to check out for the day.
+This document describes the implementation of two auto-checkout functionalities for the attendance system:
 
-## Problem Statement
-Previously, if a user forgot to check out, their session would remain open and could affect calculations for the next day. The system now automatically checks out all open sessions at midnight IST (11:59:59 PM IST) before the date changes.
+1. **12-Hour Auto-Checkout**: Automatically checks out users who have been checked in for 12 hours or more
+2. **Midnight Auto-Checkout**: Automatically checks out all open sessions at 12:00 AM IST (midnight)
 
 ## Implementation Details
 
-### 1. Scheduled Task Service
-**File:** `src/attendance/attendance-scheduler.service.ts`
+### 1. 12-Hour Auto-Checkout
 
-A new service that uses NestJS Schedule module to run a cron job:
-- **Schedule:** Runs every day at 12:00 AM IST (midnight)
-- **Cron Expression:** `'0 0 * * *'`
-- **Time Zone:** `'Asia/Kolkata'` (IST)
-- **Function:** Calls `autoCheckoutOpenSessions()` method
+**Purpose**: If a user checks in (e.g., at 5 AM IST), they will be automatically checked out after 12 hours (at 5 PM IST).
 
-### 2. Auto-Checkout Method
-**File:** `src/attendance/attendance.service.ts`
+**How it works**:
+- A scheduled task runs every hour
+- It finds all open sessions where check-in time was 12+ hours ago
+- Each session is checked out exactly 12 hours after check-in
+- Total hours are calculated and stored
 
-The `autoCheckoutOpenSessions()` method:
-- Finds all open sessions (checked in but not checked out) from the previous day
-- Sets checkout time to 11:59:59 PM IST of the previous day
-- Calculates total hours worked
-- Marks sessions as checked out
-- Returns statistics (number of sessions checked out, errors)
+**Scheduler**: Runs every hour at the start of the hour (cron: `0 * * * *`)
+- Timezone: `Asia/Kolkata` (IST)
 
-### 3. Date Handling
-- All date calculations are done in IST timezone
-- The checkout time is set to 11:59:59 PM IST of the day that just ended
-- Dates are properly converted between IST and UTC for MongoDB storage
-- The system handles timezone conversions correctly
+**Method**: `autoCheckoutAfter12Hours()` in `AttendanceService`
 
-### 4. Module Updates
-**File:** `src/attendance/attendance.module.ts`
+### 2. Midnight Auto-Checkout
 
-- Added `ScheduleModule.forRoot()` to enable scheduled tasks
-- Added `AttendanceSchedulerService` as a provider
-- The scheduler automatically starts when the application starts
+**Purpose**: At midnight (12:00 AM IST), all open sessions are automatically checked out, regardless of when they were checked in.
 
-## Installation
+**How it works**:
+- A scheduled task runs every day at 12:00 AM IST
+- It finds ALL open sessions (regardless of check-in time or date)
+- Each session is checked out at midnight IST
+- Total hours are calculated from check-in to midnight
 
-The `@nestjs/schedule` package has been added to `package.json`. To install:
+**Scheduler**: Runs daily at midnight (cron: `0 0 * * *`)
+- Timezone: `Asia/Kolkata` (IST)
 
-```bash
-npm install
-```
+**Method**: `autoCheckoutOpenSessions()` in `AttendanceService`
 
-## How It Works
+## Files Modified
 
-1. **At Midnight IST (12:00 AM):**
-   - The scheduled task automatically triggers
-   - Finds all sessions where `isCheckedOut: false` from the previous day
-   - For each session:
-     - Sets `checkOutTime` to 11:59:59 PM IST of the previous day
-     - Calculates `totalHours` from check-in to checkout
-     - Sets `isCheckedOut: true`
-     - Saves the session
+1. **`src/attendance/attendance.service.ts`**
+   - Added `autoCheckoutAfter12Hours()` method
+   - Updated `autoCheckoutOpenSessions()` method to handle all open sessions
 
-2. **Date Calculation:**
-   - When the cron runs at midnight IST, it processes the day that just ended
-   - Uses IST timezone for all calculations
-   - Converts to UTC for MongoDB storage (maintaining consistency)
-
-3. **Error Handling:**
-   - Logs errors for individual sessions that fail
-   - Continues processing other sessions even if one fails
-   - Returns summary of successful checkouts and errors
-
-## Logging
-
-The system logs:
-- When auto-checkout starts
-- Number of sessions checked out
-- Number of errors encountered
-- Individual session errors (if any)
-
-Example log output:
-```
-[AttendanceSchedulerService] Starting automatic checkout for open sessions at midnight IST...
-[Auto-Checkout] Completed at 2025-11-29T18:30:00.000Z: 5 sessions checked out, 0 errors
-[AttendanceSchedulerService] Auto-checkout completed successfully: 5 sessions checked out, 0 errors
-```
+2. **`src/attendance/attendance-scheduler.service.ts`**
+   - Added `handle12HourAutoCheckout()` scheduled task
+   - Updated `handleMidnightAutoCheckout()` scheduled task
 
 ## Testing
 
-To test the auto-checkout functionality:
+A test script is provided at `test-auto-checkout.js` to verify the functionality:
 
-1. **Manual Test:**
-   - Create a test session with `isCheckedOut: false`
-   - Manually call `attendanceService.autoCheckoutOpenSessions()`
-   - Verify the session is checked out
-
-2. **Scheduled Test:**
-   - Wait for midnight IST or adjust the cron expression temporarily
-   - Verify logs show the auto-checkout running
-   - Check that open sessions are automatically checked out
-
-## Configuration
-
-The cron schedule can be modified in `attendance-scheduler.service.ts`:
-
-```typescript
-@Cron('0 0 * * *', {
-  name: 'auto-checkout-midnight',
-  timeZone: 'Asia/Kolkata',
-})
+```bash
+node test-auto-checkout.js
 ```
 
-## Notes
+**Note**: Update the `TEST_EMAIL` and `TEST_PASSWORD` variables in the test script before running.
 
-- The system ensures that sessions are checked out at 11:59:59 PM IST, not at the exact moment the cron runs
-- This prevents sessions from carrying over to the next day
-- All time calculations respect IST timezone
-- The checkout location is not set for auto-checkouts (only manual checkouts have location data)
+## Examples
 
-## Future Enhancements
+### Example 1: 12-Hour Auto-Checkout
+- User checks in at **5:00 AM IST**
+- System automatically checks out at **5:00 PM IST** (12 hours later)
 
-Potential improvements:
-- Add notification system to alert users before auto-checkout
-- Add configuration for custom checkout times
-- Add reporting for auto-checkout statistics
-- Add admin dashboard to view auto-checkout history
+### Example 2: Midnight Auto-Checkout
+- User checks in at **8:00 PM IST**
+- System automatically checks out at **12:00 AM IST** (midnight)
 
+### Example 3: Combined Scenario
+- User checks in at **5:00 AM IST**
+- At **5:00 PM IST**: 12-hour auto-checkout would trigger (if not already checked out)
+- At **12:00 AM IST**: Midnight auto-checkout would trigger (if still open)
+
+## Important Notes
+
+1. **Timezone**: All times are handled in IST (Indian Standard Time, UTC+5:30)
+2. **Priority**: If both conditions are met, the 12-hour checkout happens first (if the hourly job runs before midnight)
+3. **Safety**: Both methods include validation to prevent negative hours
+4. **Logging**: All auto-checkout operations are logged for monitoring
+
+## Monitoring
+
+Check the application logs for:
+- `[12-Hour Auto-Checkout]` - Logs from 12-hour auto-checkout
+- `[Midnight Auto-Checkout]` - Logs from midnight auto-checkout
+
+Both log the number of sessions checked out and any errors encountered.
