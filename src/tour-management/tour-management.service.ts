@@ -16,7 +16,7 @@ export class TourManagementService {
       ...createTourDto,
       createdBy: new Types.ObjectId(createdBy),
       assignedTo: new Types.ObjectId(createTourDto.assignedTo),
-      expectedTime: new Date(createTourDto.expectedTime),
+      expectedTime: DateUtil.parseDateTimeToIST(createTourDto.expectedTime),
       status: 'assigned',
       statusHistory: [{
         status: 'assigned',
@@ -145,7 +145,7 @@ export class TourManagementService {
     }
 
     if (updateTourDto.expectedTime) {
-      updateTourDto.expectedTime = new Date(updateTourDto.expectedTime);
+      updateTourDto.expectedTime = DateUtil.parseDateTimeToIST(updateTourDto.expectedTime);
     }
 
     const updatedTour: any = await this.tourModel

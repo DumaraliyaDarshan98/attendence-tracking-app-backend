@@ -320,6 +320,11 @@ export class LeaveManagementController {
           type: 'string',
           example: 'Additional notes about the leave',
           description: 'Additional notes'
+        },
+        userId: {
+          type: 'string',
+          example: '64f8a1b2c3d4e5f6a7b8c9d0',
+          description: 'User ID for whom the leave is being created (optional, defaults to logged-in user)'
         }
       },
       required: ['leaveType', 'startDate', 'endDate', 'reason']
@@ -356,9 +361,16 @@ export class LeaveManagementController {
   @ApiResponse({ status: 400, description: 'Bad request' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async createLeaveRequest(@Body() leaveData: any, @Request() req: any) {
+    // Use provided userId if available and valid, otherwise use the logged-in user's ID
+    // If userId is provided (not null, undefined, or empty string), use it
+    // Otherwise, default to the logged-in user from the access token
+    const userId = (leaveData.userId && typeof leaveData.userId === 'string' && leaveData.userId.trim() !== '') 
+      ? leaveData.userId 
+      : req.user._id;
+
     const leaveRequest = await this.leaveManagementService.createLeaveRequest({
       ...leaveData,
-      userId: req.user._id
+      userId: userId
     });
     return {
       code: 201,

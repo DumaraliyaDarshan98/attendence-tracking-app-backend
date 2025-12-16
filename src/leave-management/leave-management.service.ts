@@ -57,7 +57,7 @@ export class LeaveManagementService {
 
   // Leave Request Methods
   async createLeaveRequest(leaveData: any): Promise<LeaveRequest> {
-    // Calculate total days
+    // Parse dates to IST
     const startDate = DateUtil.parseDateToISTStartOfDay(leaveData.startDate);
     const endDate = DateUtil.parseDateToISTStartOfDay(leaveData.endDate);
     
@@ -65,8 +65,8 @@ export class LeaveManagementService {
       throw new BadRequestException('Start date cannot be after end date');
     }
 
-    // Calculate working days (excluding weekends and holidays)
-    const totalDays = this.calculateWorkingDays(startDate, endDate);
+    // Calculate total days (accounting for half-day leaves)
+    const totalDays = this.calculateTotalDays(startDate, endDate, leaveData.isHalfDay || false);
     
     const leaveRequest = new this.leaveRequestModel({
       ...leaveData,
@@ -75,12 +75,14 @@ export class LeaveManagementService {
       endDate: endDate
     });
 
-    return await leaveRequest.save();
+    const saved = await leaveRequest.save();
+    return this.transformLeaveRequestForResponse(saved);
   }
 
   async getUserLeaveRequests(userId: string): Promise<LeaveRequest[]> {
-    return await this.leaveRequestModel.find({ userId: new Types.ObjectId(userId) })
+    const leaveRequests = await this.leaveRequestModel.find({ userId: new Types.ObjectId(userId) })
       .sort({ createdAt: -1 });
+    return this.transformLeaveRequestsForResponse(leaveRequests);
   }
 
   async getAllLeaveRequests(
@@ -139,7 +141,7 @@ export class LeaveManagementService {
     ]);
 
     return {
-      data,
+      data: this.transformLeaveRequestsForResponse(data),
       total,
       page,
       limit,
@@ -155,15 +157,44 @@ export class LeaveManagementService {
     if (!leaveRequest) {
       throw new NotFoundException('Leave request not found');
     }
-    return leaveRequest;
+    return this.transformLeaveRequestForResponse(leaveRequest);
   }
 
   async updateLeaveRequest(id: string, updateData: any): Promise<LeaveRequest> {
+    // Get existing leave request
+    const existingLeaveRequest = await this.leaveRequestModel.findById(id);
+    if (!existingLeaveRequest) {
+      throw new NotFoundException('Leave request not found');
+    }
+
+    // If dates or half-day status is being updated, recalculate totalDays
+    if (updateData.startDate || updateData.endDate || updateData.isHalfDay !== undefined) {
+      const startDate = updateData.startDate 
+        ? DateUtil.parseDateToISTStartOfDay(updateData.startDate)
+        : existingLeaveRequest.startDate;
+      const endDate = updateData.endDate
+        ? DateUtil.parseDateToISTStartOfDay(updateData.endDate)
+        : existingLeaveRequest.endDate;
+      
+      if (startDate > endDate) {
+        throw new BadRequestException('Start date cannot be after end date');
+      }
+
+      const isHalfDay = updateData.isHalfDay !== undefined 
+        ? updateData.isHalfDay 
+        : existingLeaveRequest.isHalfDay;
+
+      // Recalculate total days
+      updateData.totalDays = this.calculateTotalDays(startDate, endDate, isHalfDay);
+      updateData.startDate = startDate;
+      updateData.endDate = endDate;
+    }
+
     const leaveRequest = await this.leaveRequestModel.findByIdAndUpdate(id, updateData, { new: true });
     if (!leaveRequest) {
       throw new NotFoundException('Leave request not found');
     }
-    return leaveRequest;
+    return this.transformLeaveRequestForResponse(leaveRequest);
   }
 
   async updateLeaveRequestStatus(
@@ -203,7 +234,7 @@ export class LeaveManagementService {
       throw new NotFoundException('Leave request not found');
     }
 
-    return leaveRequest;
+    return this.transformLeaveRequestForResponse(leaveRequest);
   }
 
   // Legacy methods for backward compatibility
@@ -230,7 +261,8 @@ export class LeaveManagementService {
     }
 
     leaveRequest.status = 'cancelled';
-    return await leaveRequest.save();
+    const saved = await leaveRequest.save();
+    return this.transformLeaveRequestForResponse(saved);
   }
 
   async deleteLeaveRequest(id: string): Promise<void> {
@@ -242,17 +274,30 @@ export class LeaveManagementService {
   }
 
   async getLeaveRequestsByDateRange(startDate: string, endDate: string): Promise<LeaveRequest[]> {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
+    const start = DateUtil.parseDateToISTStartOfDay(startDate);
+    const end = DateUtil.parseDateToISTEndOfDay(endDate);
 
-    return await this.leaveRequestModel.find({
+    const leaveRequests = await this.leaveRequestModel.find({
       startDate: { $lte: end },
       endDate: { $gte: start }
     }).populate('userId', 'firstname lastname email');
+    
+    return this.transformLeaveRequestsForResponse(leaveRequests);
   }
 
-  // Helper method to calculate working days
-  private calculateWorkingDays(startDate: Date, endDate: Date): number {
+  // Helper method to calculate total days (accounting for half-day leaves)
+  private calculateTotalDays(startDate: Date, endDate: Date, isHalfDay: boolean): number {
+    // If it's a half-day leave and startDate equals endDate, return 0.5
+    if (isHalfDay && startDate.getTime() === endDate.getTime()) {
+      // Check if it's a weekend
+      const dayOfWeek = startDate.getDay();
+      if (dayOfWeek === 0 || dayOfWeek === 6) {
+        return 0; // Weekend half-day doesn't count
+      }
+      return 0.5;
+    }
+
+    // Calculate working days (excluding weekends)
     let workingDays = 0;
     const currentDate = new Date(startDate);
     
@@ -260,12 +305,69 @@ export class LeaveManagementService {
       const dayOfWeek = currentDate.getDay();
       // 0 = Sunday, 6 = Saturday
       if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        workingDays++;
+        if (isHalfDay) {
+          workingDays += 0.5; // Each day counts as 0.5 for half-day leaves
+        } else {
+          workingDays += 1; // Full day
+        }
       }
       currentDate.setDate(currentDate.getDate() + 1);
     }
     
     return workingDays;
+  }
+
+  // Helper method to calculate working days (legacy, kept for backward compatibility)
+  private calculateWorkingDays(startDate: Date, endDate: Date): number {
+    return this.calculateTotalDays(startDate, endDate, false);
+  }
+
+  // Transform a single leave request to include IST-formatted dates
+  private transformLeaveRequestForResponse(leaveRequest: any): any {
+    if (!leaveRequest) {
+      return leaveRequest;
+    }
+
+    // Convert Mongoose document to plain object if needed
+    const transformed = leaveRequest.toObject ? leaveRequest.toObject() : { ...leaveRequest };
+    
+    // Format dates to IST strings (YYYY-MM-DD format)
+    // Dates are stored as Date objects in MongoDB, convert them to IST date strings
+    if (transformed.startDate) {
+      const startDate = transformed.startDate instanceof Date 
+        ? transformed.startDate 
+        : new Date(transformed.startDate);
+      if (!isNaN(startDate.getTime())) {
+        transformed.startDate = DateUtil.formatDateToISTString(startDate);
+      }
+    }
+    if (transformed.endDate) {
+      const endDate = transformed.endDate instanceof Date 
+        ? transformed.endDate 
+        : new Date(transformed.endDate);
+      if (!isNaN(endDate.getTime())) {
+        transformed.endDate = DateUtil.formatDateToISTString(endDate);
+      }
+    }
+    if (transformed.approvedAt) {
+      const approvedAt = transformed.approvedAt instanceof Date 
+        ? transformed.approvedAt 
+        : new Date(transformed.approvedAt);
+      if (!isNaN(approvedAt.getTime())) {
+        transformed.approvedAt = DateUtil.formatDateToISTString(approvedAt);
+      }
+    }
+
+    return transformed;
+  }
+
+  // Transform an array of leave requests to include IST-formatted dates
+  private transformLeaveRequestsForResponse(leaveRequests: any[]): any[] {
+    if (!Array.isArray(leaveRequests)) {
+      return leaveRequests;
+    }
+
+    return leaveRequests.map(leaveRequest => this.transformLeaveRequestForResponse(leaveRequest));
   }
 
   // Get user's leave balance (you can extend this based on your leave policy)
