@@ -1,14 +1,17 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Tour, TourDocument } from '../models/tour.model';
 import { CreateTourDto, UpdateTourDto, UpdateTourStatusDto } from './dto';
+import { UsersService } from '../users/users.service';
 import { DateUtil } from '../common/utils';
 
 @Injectable()
 export class TourManagementService {
   constructor(
     @InjectModel(Tour.name) private tourModel: Model<TourDocument>,
+    @Inject(forwardRef(() => UsersService))
+    private usersService: UsersService,
   ) { }
 
   async create(createTourDto: CreateTourDto, createdBy: string): Promise<Tour> {
@@ -39,7 +42,8 @@ export class TourManagementService {
       createdBy?: string;
       startDate?: string;
       endDate?: string;
-    } = {}
+    } = {},
+    currentUser?: any
   ): Promise<{ data: Tour[]; total: number; page: number; limit: number; totalPages: number }> {
     const skip = (page - 1) * limit;
 
@@ -50,12 +54,64 @@ export class TourManagementService {
       filterQuery.status = filters.status;
     }
 
-    if (filters.assignedTo) {
-      filterQuery.assignedTo = new Types.ObjectId(filters.assignedTo);
+    // Apply reporting state/city filtering
+    let allowedUserIds: string[] | null = null;
+    if (currentUser) {
+      allowedUserIds = await this.usersService.getVisibleUserIds(currentUser);
     }
 
-    if (filters.createdBy) {
-      filterQuery.createdBy = new Types.ObjectId(filters.createdBy);
+    // Apply user filtering based on reporting state/city
+    if (allowedUserIds) {
+      // User can see tours assigned to OR created by visible users
+      const allowedObjectIds = allowedUserIds.map(id => new Types.ObjectId(id));
+      
+      if (filters.assignedTo) {
+        // If specific assignedTo is requested, check if user has access
+        if (!allowedUserIds.includes(filters.assignedTo)) {
+          return {
+            data: [],
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          };
+        }
+        // User has access - show tours assigned to this user OR created by any visible user
+        filterQuery.$or = [
+          { assignedTo: new Types.ObjectId(filters.assignedTo) },
+          { createdBy: { $in: allowedObjectIds } }
+        ];
+      } else if (filters.createdBy) {
+        // If specific createdBy is requested, check if user has access
+        if (!allowedUserIds.includes(filters.createdBy)) {
+          return {
+            data: [],
+            total: 0,
+            page,
+            limit,
+            totalPages: 0,
+          };
+        }
+        // User has access - show tours created by this user OR assigned to any visible user
+        filterQuery.$or = [
+          { createdBy: new Types.ObjectId(filters.createdBy) },
+          { assignedTo: { $in: allowedObjectIds } }
+        ];
+      } else {
+        // No specific user filter - show tours assigned to OR created by visible users
+        filterQuery.$or = [
+          { assignedTo: { $in: allowedObjectIds } },
+          { createdBy: { $in: allowedObjectIds } }
+        ];
+      }
+    } else {
+      // Super admin or no restrictions - apply filters normally
+      if (filters.assignedTo) {
+        filterQuery.assignedTo = new Types.ObjectId(filters.assignedTo);
+      }
+      if (filters.createdBy) {
+        filterQuery.createdBy = new Types.ObjectId(filters.createdBy);
+      }
     }
 
     if (filters.startDate || filters.endDate) {
@@ -246,14 +302,26 @@ export class TourManagementService {
     return tour.statusHistory || [];
   }
 
-  async getToursByDateRange(startDate: string, endDate: string): Promise<Tour[]> {
-    const filterQuery = {
+  async getToursByDateRange(startDate: string, endDate: string, currentUser?: any): Promise<Tour[]> {
+    const filterQuery: any = {
       expectedTime: {
         $gte: DateUtil.parseDateToISTStartOfDay(startDate),
         $lte: DateUtil.parseDateToISTEndOfDay(endDate)
       },
       isActive: true
     };
+
+    // Apply reporting state/city filtering
+    let allowedUserIds: string[] | null = null;
+    if (currentUser) {
+      allowedUserIds = await this.usersService.getVisibleUserIds(currentUser);
+      if (allowedUserIds) {
+        filterQuery.$or = [
+          { assignedTo: { $in: allowedUserIds.map(id => new Types.ObjectId(id)) } },
+          { createdBy: { $in: allowedUserIds.map(id => new Types.ObjectId(id)) } }
+        ];
+      }
+    }
 
     return await this.tourModel
       .find(filterQuery)

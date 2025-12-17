@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { User, UserDocument } from '../models/user.model';
 import { Attendance, AttendanceDocument } from '../models/attendance.model';
 import { LeaveRequest, LeaveRequestDocument } from '../models/leave-request.model';
 import { DashboardStatsDto, RecentActivityDto, DepartmentStatDto } from './dashboard.dto';
+import { UsersService } from '../users/users.service';
 import { DateUtil } from '../common/utils';
 
 @Injectable()
@@ -13,30 +14,65 @@ export class DashboardService {
         @InjectModel(User.name) private userModel: Model<UserDocument>,
         @InjectModel(Attendance.name) private attendanceModel: Model<AttendanceDocument>,
         @InjectModel(LeaveRequest.name) private leaveRequestModel: Model<LeaveRequestDocument>,
+        @Inject(forwardRef(() => UsersService))
+        private usersService: UsersService,
     ) { }
 
-    async getStats(): Promise<DashboardStatsDto> {
+    async getStats(currentUser?: any): Promise<DashboardStatsDto> {
         const today = DateUtil.getCurrentDateISTStartOfDay();
         const endOfDay = DateUtil.getCurrentDateISTEndOfDay();
 
+        // Get visible user IDs
+        let allowedUserIds: string[] | null = null;
+        let userFilter: any = {};
+        if (currentUser) {
+            allowedUserIds = await this.usersService.getVisibleUserIds(currentUser);
+            if (allowedUserIds) {
+                userFilter = { userId: { $in: allowedUserIds.map(id => new Types.ObjectId(id)) } };
+            }
+        }
+
         const [totalEmployees, presentToday, onLeave, newRequests] = await Promise.all([
             // Count active employees with roles
-            this.userModel.countDocuments({ isActive: true, role: { $ne: null } }),
+            allowedUserIds
+                ? this.userModel.countDocuments({ 
+                    isActive: true, 
+                    role: { $ne: null },
+                    _id: { $in: allowedUserIds.map(id => new Types.ObjectId(id)) }
+                })
+                : this.userModel.countDocuments({ isActive: true, role: { $ne: null } }),
 
             // Count distinct users who checked in today
-            this.attendanceModel.distinct('userId', {
-                date: { $gte: today, $lte: endOfDay }
-            }).then(ids => ids.length),
+            allowedUserIds
+                ? this.attendanceModel.distinct('userId', {
+                    date: { $gte: today, $lte: endOfDay },
+                    userId: { $in: allowedUserIds.map(id => new Types.ObjectId(id)) }
+                }).then(ids => ids.length)
+                : this.attendanceModel.distinct('userId', {
+                    date: { $gte: today, $lte: endOfDay }
+                }).then(ids => ids.length),
 
             // Count employees on approved leave today
-            this.leaveRequestModel.countDocuments({
-                startDate: { $lte: endOfDay },
-                endDate: { $gte: today },
-                status: 'approved'
-            }),
+            allowedUserIds
+                ? this.leaveRequestModel.countDocuments({
+                    startDate: { $lte: endOfDay },
+                    endDate: { $gte: today },
+                    status: 'approved',
+                    userId: { $in: allowedUserIds.map(id => new Types.ObjectId(id)) }
+                })
+                : this.leaveRequestModel.countDocuments({
+                    startDate: { $lte: endOfDay },
+                    endDate: { $gte: today },
+                    status: 'approved'
+                }),
 
             // Count pending leave requests
-            this.leaveRequestModel.countDocuments({ status: 'pending' }),
+            allowedUserIds
+                ? this.leaveRequestModel.countDocuments({ 
+                    status: 'pending',
+                    userId: { $in: allowedUserIds.map(id => new Types.ObjectId(id)) }
+                })
+                : this.leaveRequestModel.countDocuments({ status: 'pending' }),
         ]);
 
         return {
@@ -47,17 +83,30 @@ export class DashboardService {
         };
     }
 
-    async getRecentActivity(limit: number = 10): Promise<RecentActivityDto[]> {
+    async getRecentActivity(limit: number = 10, currentUser?: any): Promise<RecentActivityDto[]> {
+        // Get visible user IDs
+        let allowedUserIds: string[] | null = null;
+        if (currentUser) {
+            allowedUserIds = await this.usersService.getVisibleUserIds(currentUser);
+        }
+
+        const attendanceFilter: any = {};
+        const leaveFilter: any = {};
+        if (allowedUserIds) {
+            attendanceFilter.userId = { $in: allowedUserIds.map(id => new Types.ObjectId(id)) };
+            leaveFilter.userId = { $in: allowedUserIds.map(id => new Types.ObjectId(id)) };
+        }
+
         // Fetch recent attendance
         const recentAttendance = await this.attendanceModel
-            .find()
+            .find(attendanceFilter)
             .sort({ createdAt: -1 })
             .limit(limit)
             .populate('userId', 'firstname lastname');
 
         // Fetch recent leave requests
         const recentLeaves = await this.leaveRequestModel
-            .find()
+            .find(leaveFilter)
             .sort({ createdAt: -1 })
             .limit(limit)
             .populate('userId', 'firstname lastname');
@@ -96,22 +145,34 @@ export class DashboardService {
             .slice(0, limit);
     }
 
-    async getDepartmentStats(): Promise<DepartmentStatDto[]> {
+    async getDepartmentStats(currentUser?: any): Promise<DepartmentStatDto[]> {
         const today = DateUtil.getCurrentDateISTStartOfDay();
         const endOfDay = DateUtil.getCurrentDateISTEndOfDay();
+
+        // Get visible user IDs
+        let allowedUserIds: string[] | null = null;
+        if (currentUser) {
+            allowedUserIds = await this.usersService.getVisibleUserIds(currentUser);
+        }
+
+        const matchStage: any = {
+            isActive: true,
+            center: {
+                $exists: true,
+                $nin: [null, '']
+            },
+            role: { $ne: null }
+        };
+
+        if (allowedUserIds) {
+            matchStage._id = { $in: allowedUserIds.map(id => new Types.ObjectId(id)) };
+        }
 
         // Optimized single aggregation query to get all stats at once
         const stats = await this.userModel.aggregate([
             // Match active users with centers
             {
-                $match: {
-                    isActive: true,
-                    center: {
-                        $exists: true,
-                        $nin: [null, '']
-                    },
-                    role: { $ne: null }
-                }
+                $match: matchStage
             },
             // Group by center to get total count
             {
@@ -162,8 +223,19 @@ export class DashboardService {
         }));
     }
 
-    async getPendingLeaveRequests(limit: number = 5) {
-        return this.leaveRequestModel.find({ status: 'pending' })
+    async getPendingLeaveRequests(limit: number = 5, currentUser?: any) {
+        // Get visible user IDs
+        let allowedUserIds: string[] | null = null;
+        if (currentUser) {
+            allowedUserIds = await this.usersService.getVisibleUserIds(currentUser);
+        }
+
+        const filter: any = { status: 'pending' };
+        if (allowedUserIds) {
+            filter.userId = { $in: allowedUserIds.map(id => new Types.ObjectId(id)) };
+        }
+
+        return this.leaveRequestModel.find(filter)
             .sort({ createdAt: -1 })
             .limit(limit)
             .populate('userId', 'firstname lastname');

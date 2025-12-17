@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards, Request } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiQuery, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AuditLogsService } from './audit-logs.service';
 import { AuthGuard } from '../guards/auth.guard';
@@ -22,6 +22,7 @@ export class AuditLogsController {
   @ApiQuery({ name: 'limit', required: false })
   @ApiResponse({ status: 200, description: 'Audit logs fetched' })
   async list(
+    @Request() req: any,
     @Query('module') module?: string,
     @Query('action') action?: string,
     @Query('entityId') entityId?: string,
@@ -36,7 +37,7 @@ export class AuditLogsController {
       performedBy,
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 10,
-    });
+    }, req.user);
   }
 
   @Get('by-entity')
@@ -45,6 +46,7 @@ export class AuditLogsController {
   @ApiQuery({ name: 'module', required: true })
   @ApiQuery({ name: 'entityId', required: true })
   async listByEntity(
+    @Request() req: any,
     @Query('module') module: string,
     @Query('entityId') entityId: string,
     @Query('page') page?: string,
@@ -55,7 +57,7 @@ export class AuditLogsController {
       entityId,
       page: page ? parseInt(page) : 1,
       limit: limit ? parseInt(limit) : 10,
-    });
+    }, req.user);
   }
 }
 

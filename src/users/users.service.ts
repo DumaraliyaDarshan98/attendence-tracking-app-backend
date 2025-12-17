@@ -1,10 +1,13 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { User, UserDocument } from '../models/user.model';
 import { RolesService } from '../roles/roles.service';
 import { AuditLogsService } from '../audit-logs/audit-logs.service';
 import { SessionsService } from '../sessions/sessions.service';
+import { AttendanceService } from '../attendance/attendance.service';
+import { LeaveManagementService } from '../leave-management/leave-management.service';
+import { TourManagementService } from '../tour-management/tour-management.service';
 import { computeDiff } from '../common/utils/diff.util';
 import * as bcrypt from 'bcrypt';
 import * as XLSX from 'xlsx';
@@ -17,6 +20,12 @@ export class UsersService {
     private rolesService: RolesService,
     private auditLogsService: AuditLogsService,
     private sessionsService: SessionsService,
+    @Inject(forwardRef(() => AttendanceService))
+    private attendanceService: AttendanceService,
+    @Inject(forwardRef(() => LeaveManagementService))
+    private leaveManagementService: LeaveManagementService,
+    @Inject(forwardRef(() => TourManagementService))
+    private tourManagementService: TourManagementService,
   ) { }
 
   async create(createUserDto: any, actor?: { _id: string; email?: string } | null): Promise<User> {
@@ -33,7 +42,9 @@ export class UsersService {
       state,
       center,
       pincode,
-      designation
+      designation,
+      reportingState,
+      reportingCity
     } = createUserDto;
 
     // Check if user already exists
@@ -63,6 +74,8 @@ export class UsersService {
       center,
       pincode,
       designation,
+      reportingState: reportingState || [],
+      reportingCity: reportingCity || [],
     });
 
     const saved = await user.save();
@@ -82,7 +95,7 @@ export class UsersService {
     return populated as unknown as User;
   }
 
-  async findAll(query?: { page?: number; limit?: number; search?: string; sortBy?: string; sortOrder?: 'asc' | 'desc'; state?: string; city?: string; center?: string }): Promise<{ data: User[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> {
+  async findAll(query?: { page?: number; limit?: number; search?: string; sortBy?: string; sortOrder?: 'asc' | 'desc'; state?: string; city?: string; center?: string }, currentUser?: any): Promise<{ data: User[]; pagination: { page: number; limit: number; total: number; totalPages: number } }> {
     const page = query?.page || 1;
     const limit = query?.limit || 10;
     const skip = (page - 1) * limit;
@@ -92,33 +105,86 @@ export class UsersService {
 
     // Build search query
     const searchQuery: any = {};
-    if (search) {
+    if (search && typeof search === 'string' && search.trim()) {
+      const searchTerm = search.trim();
       searchQuery.$or = [
-        { firstname: { $regex: search, $options: 'i' } },
-        { lastname: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-        { mobilenumber: { $regex: search, $options: 'i' } },
-        { city: { $regex: search, $options: 'i' } },
-        { state: { $regex: search, $options: 'i' } },
-        { center: { $regex: search, $options: 'i' } },
-        { pincode: { $regex: search, $options: 'i' } },
-        { designation: { $regex: search, $options: 'i' } },
+        { firstname: { $regex: searchTerm, $options: 'i' } },
+        { lastname: { $regex: searchTerm, $options: 'i' } },
+        { email: { $regex: searchTerm, $options: 'i' } },
+        { mobilenumber: { $regex: searchTerm, $options: 'i' } },
+        { city: { $regex: searchTerm, $options: 'i' } },
+        { state: { $regex: searchTerm, $options: 'i' } },
+        { center: { $regex: searchTerm, $options: 'i' } },
+        { pincode: { $regex: searchTerm, $options: 'i' } },
+        { designation: { $regex: searchTerm, $options: 'i' } },
       ];
     }
 
-    // Add filter for state
-    if (query?.state) {
-      searchQuery.state = { $regex: query.state, $options: 'i' };
+    // Add filter for state (ensure it's a string)
+    if (query?.state && typeof query.state === 'string' && query.state.trim()) {
+      searchQuery.state = { $regex: String(query.state).trim(), $options: 'i' };
     }
 
-    // Add filter for city
-    if (query?.city) {
-      searchQuery.city = { $regex: query.city, $options: 'i' };
+    // Add filter for city (ensure it's a string)
+    if (query?.city && typeof query.city === 'string' && query.city.trim()) {
+      searchQuery.city = { $regex: String(query.city).trim(), $options: 'i' };
     }
 
-    // Add filter for center (taluka)
-    if (query?.center) {
-      searchQuery.center = { $regex: query.center, $options: 'i' };
+    // Add filter for center (taluka) (ensure it's a string)
+    if (query?.center && typeof query.center === 'string' && query.center.trim()) {
+      searchQuery.center = { $regex: String(query.center).trim(), $options: 'i' };
+    }
+
+    // Apply reporting state/city filtering based on current user
+    if (currentUser) {
+      // Get current user's role to check if super admin
+      const currentUserWithRole = await this.userModel
+        .findById(currentUser._id || currentUser.id)
+        .populate({ path: 'role', select: '_id name displayName description isActive isSuperAdmin' })
+        .exec();
+      
+      const isSuperAdmin = (currentUserWithRole?.role as any)?.isSuperAdmin || false;
+      
+      if (!isSuperAdmin) {
+        // If user has reporting state/city, filter by them
+        const reportingStates = currentUserWithRole?.reportingState || [];
+        const reportingCities = currentUserWithRole?.reportingCity || [];
+        
+        if (reportingStates.length > 0 || reportingCities.length > 0) {
+          // Filter users whose reporting state/city overlaps with current user's reporting state/city
+          // User B is visible if:
+          // - User B's reportingState contains any of current user's reportingStates OR
+          // - User B's reportingCity contains any of current user's reportingCities
+          const reportingFilter: any[] = [];
+          
+          if (reportingStates.length > 0) {
+            reportingFilter.push({ reportingState: { $in: reportingStates } });
+          }
+          
+          if (reportingCities.length > 0) {
+            reportingFilter.push({ reportingCity: { $in: reportingCities } });
+          }
+          
+          if (reportingFilter.length > 0) {
+            // Combine with existing $or if present, otherwise create new
+            if (searchQuery.$or) {
+              // If there's already an $or (from search), we need to combine properly
+              const existingOr = searchQuery.$or;
+              delete searchQuery.$and;
+              searchQuery.$and = [
+                { $or: existingOr },
+                { $or: reportingFilter }
+              ];
+            } else {
+              searchQuery.$or = reportingFilter;
+            }
+          }
+        } else {
+          // If user has no reporting state/city, show only their own record
+          searchQuery._id = currentUser._id || currentUser.id;
+        }
+      }
+      // If super admin, no additional filtering needed - show all users
     }
 
     // Build sort object
@@ -131,7 +197,7 @@ export class UsersService {
     // Get paginated results
     const data = await this.userModel
       .find(searchQuery, { password: 0 })
-      .populate({ path: 'role', select: '_id name displayName description isActive' })
+      .populate({ path: 'role', select: '_id name displayName description isActive isSuperAdmin' })
       .sort(sort)
       .skip(skip)
       .limit(limit)
@@ -335,5 +401,205 @@ export class UsersService {
       changes: [],
       metadata: { email: user.email, action: 'logout_all_devices' },
     });
+  }
+
+  async getVisibleUserIds(currentUser: any): Promise<string[] | null> {
+    // Returns array of user IDs that should be visible to current user
+    // Returns null if all users should be visible (super admin)
+    if (!currentUser) {
+      return null;
+    }
+
+    const currentUserWithRole = await this.userModel
+      .findById(currentUser._id || currentUser.id)
+      .populate({ path: 'role', select: '_id name displayName description isActive isSuperAdmin' })
+      .exec();
+    
+    const isSuperAdmin = (currentUserWithRole?.role as any)?.isSuperAdmin || false;
+    
+    if (isSuperAdmin) {
+      return null; // Super admin can see all users
+    }
+
+    const reportingStates = currentUserWithRole?.reportingState || [];
+    const reportingCities = currentUserWithRole?.reportingCity || [];
+    
+    if (reportingStates.length === 0 && reportingCities.length === 0) {
+      // User has no reporting state/city, can only see themselves
+      return [currentUser._id || currentUser.id];
+    }
+
+    // Find users whose reporting state/city overlaps with current user's
+    const userFilter: any = {
+      $or: []
+    };
+
+    if (reportingStates.length > 0) {
+      userFilter.$or.push({ reportingState: { $in: reportingStates } });
+    }
+
+    if (reportingCities.length > 0) {
+      userFilter.$or.push({ reportingCity: { $in: reportingCities } });
+    }
+
+    if (userFilter.$or.length === 0) {
+      return [currentUser._id || currentUser.id];
+    }
+
+    const visibleUsers = await this.userModel.find(userFilter).select('_id').exec();
+    return visibleUsers.map(u => (u._id as any).toString());
+  }
+
+  async generateComprehensiveReport(userId: string, startDate: string, endDate: string): Promise<Buffer> {
+    // Get user information
+    const user = await this.findOne(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // Get attendance records
+    const attendanceRecords = await this.attendanceService.getAttendanceByDateRange(userId, startDate, endDate);
+
+    // Get leave requests
+    const leaveRequests = await this.leaveManagementService.getAllLeaveRequests(1, 10000, {
+      userId,
+      startDate,
+      endDate,
+    });
+
+    // Get tours
+    const toursResult = await this.tourManagementService.findByUser(userId, 1, 10000);
+    const tours = toursResult.data.filter(tour => {
+      const tourDate = new Date(tour.expectedTime);
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      return tourDate >= start && tourDate <= end;
+    });
+
+    // Create workbook
+    const wb = XLSX.utils.book_new();
+
+    // Sheet 1: User Information
+    const userData = [
+      ['User Information'],
+      ['Field', 'Value'],
+      ['First Name', user.firstname || ''],
+      ['Last Name', user.lastname || ''],
+      ['Email', user.email || ''],
+      ['Mobile Number', user.mobilenumber || ''],
+      ['Designation', user.designation || ''],
+      ['Role', (user.role as any)?.displayName || (user.role as any)?.name || 'No Role'],
+      ['Address Line 1', user.addressline1 || ''],
+      ['Address Line 2', user.addressline2 || ''],
+      ['City', user.city || ''],
+      ['State', user.state || ''],
+      ['Center/Taluka', user.center || ''],
+      ['Pincode', user.pincode || ''],
+      ['Status', user.isActive ? 'Active' : 'Inactive'],
+      ['Created At', user.createdAt ? new Date(user.createdAt).toLocaleString() : ''],
+      ['Updated At', user.updatedAt ? new Date(user.updatedAt).toLocaleString() : ''],
+    ];
+    const userWs = XLSX.utils.aoa_to_sheet(userData);
+    XLSX.utils.book_append_sheet(wb, userWs, 'User Information');
+
+    // Sheet 2: Attendance Records
+    const attendanceHeaders = [
+      'Date',
+      'Check-In Time',
+      'Check-Out Time',
+      'Total Hours',
+      'Status',
+      'Session Number',
+      'Check-In Location (Lat, Long)',
+      'Check-Out Location (Lat, Long)',
+    ];
+    const attendanceRows = attendanceRecords.map(record => [
+      record.date ? new Date(record.date).toLocaleDateString() : '',
+      record.checkInTime ? new Date(record.checkInTime).toLocaleString() : '',
+      record.checkOutTime ? new Date(record.checkOutTime).toLocaleString() : '',
+      record.totalHours || '',
+      record.status || '',
+      record.sessionNumber || '',
+      record.checkInLatitude && record.checkInLongitude
+        ? `${record.checkInLatitude}, ${record.checkInLongitude}`
+        : '',
+      record.checkOutLatitude && record.checkOutLongitude
+        ? `${record.checkOutLatitude}, ${record.checkOutLongitude}`
+        : '',
+    ]);
+    const attendanceData = [attendanceHeaders, ...attendanceRows];
+    const attendanceWs = XLSX.utils.aoa_to_sheet(attendanceData);
+    XLSX.utils.book_append_sheet(wb, attendanceWs, 'Attendance');
+
+    // Sheet 3: Leave Requests
+    const leaveHeaders = [
+      'Leave Type',
+      'Start Date',
+      'End Date',
+      'Total Days',
+      'Status',
+      'Reason',
+      'Is Half Day',
+      'Half Day Type',
+      'Approved By',
+      'Approved At',
+      'Rejection Reason',
+      'Notes',
+      'Created At',
+    ];
+    const leaveRows = leaveRequests.data.map(leave => [
+      leave.leaveType || '',
+      leave.startDate ? new Date(leave.startDate).toLocaleDateString() : '',
+      leave.endDate ? new Date(leave.endDate).toLocaleDateString() : '',
+      leave.totalDays || '',
+      leave.status || '',
+      leave.reason || '',
+      leave.isHalfDay ? 'Yes' : 'No',
+      leave.halfDayType || '',
+      leave.approvedBy
+        ? `${(leave.approvedBy as any).firstname || ''} ${(leave.approvedBy as any).lastname || ''}`
+        : '',
+      leave.approvedAt ? new Date(leave.approvedAt).toLocaleString() : '',
+      leave.rejectionReason || '',
+      leave.notes || '',
+      leave.createdAt ? new Date(leave.createdAt).toLocaleString() : '',
+    ]);
+    const leaveData = [leaveHeaders, ...leaveRows];
+    const leaveWs = XLSX.utils.aoa_to_sheet(leaveData);
+    XLSX.utils.book_append_sheet(wb, leaveWs, 'Leaves');
+
+    // Sheet 4: Tours
+    const tourHeaders = [
+      'Purpose',
+      'Location',
+      'Expected Time',
+      'Actual Visit Time',
+      'Status',
+      'User Notes',
+      'Admin Notes',
+      'Completion Notes',
+      'Created At',
+      'Updated At',
+    ];
+    const tourRows = tours.map(tour => [
+      tour.purpose || '',
+      tour.location || '',
+      tour.expectedTime ? new Date(tour.expectedTime).toLocaleString() : '',
+      tour.actualVisitTime ? new Date(tour.actualVisitTime).toLocaleString() : '',
+      tour.status || '',
+      tour.userNotes || '',
+      tour.adminNotes || '',
+      tour.completionNotes || '',
+      tour.createdAt ? new Date(tour.createdAt).toLocaleString() : '',
+      tour.updatedAt ? new Date(tour.updatedAt).toLocaleString() : '',
+    ]);
+    const tourData = [tourHeaders, ...tourRows];
+    const tourWs = XLSX.utils.aoa_to_sheet(tourData);
+    XLSX.utils.book_append_sheet(wb, tourWs, 'Tours');
+
+    // Generate buffer
+    const buffer: Buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+    return buffer;
   }
 } 

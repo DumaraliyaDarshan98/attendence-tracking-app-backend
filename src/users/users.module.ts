@@ -9,6 +9,9 @@ import { appConfig } from '../config/app.config';
 import { RolesModule } from '../roles/roles.module';
 import { AuditLogsModule } from '../audit-logs/audit-logs.module';
 import { SessionsModule } from '../sessions/sessions.module';
+import { AttendanceModule } from '../attendance/attendance.module';
+import { LeaveManagementModule } from '../leave-management/leave-management.module';
+import { TourManagementModule } from '../tour-management/tour-management.module';
 
 @Module({
   imports: [
@@ -20,6 +23,9 @@ import { SessionsModule } from '../sessions/sessions.module';
     forwardRef(() => RolesModule),
     forwardRef(() => AuditLogsModule),
     SessionsModule,
+    forwardRef(() => AttendanceModule),
+    forwardRef(() => LeaveManagementModule),
+    forwardRef(() => TourManagementModule),
   ],
   controllers: [UsersController],
   providers: [UsersService, AuthGuard],

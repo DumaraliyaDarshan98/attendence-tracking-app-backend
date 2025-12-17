@@ -1,7 +1,8 @@
-import { Injectable, ConflictException, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, ConflictException, NotFoundException, Logger, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Attendance, AttendanceDocument } from '../models/attendance.model';
+import { UsersService } from '../users/users.service';
 import { DateUtil } from '../common/utils';
 
 @Injectable()
@@ -10,6 +11,8 @@ export class AttendanceService {
 
   constructor(
     @InjectModel(Attendance.name) private attendanceModel: Model<AttendanceDocument>,
+    @Inject(forwardRef(() => UsersService))
+    private usersService: UsersService,
   ) { }
 
   async checkIn(userId: string, location?: { latitude?: number; longitude?: number }): Promise<Attendance> {
@@ -196,7 +199,8 @@ export class AttendanceService {
     state?: string,
     city?: string,
     center?: string,
-    taluka?: string
+    taluka?: string,
+    currentUser?: any
   ): Promise<{ data: Attendance[]; total: number; page: number; limit: number; totalPages: number }> {
     const startDate = DateUtil.parseDateToISTStartOfDay(date);
     const endDate = DateUtil.parseDateToISTEndOfDay(date);
@@ -209,9 +213,30 @@ export class AttendanceService {
       },
     };
 
+    // Apply reporting state/city filtering
+    let allowedUserIds: string[] | null = null;
+    if (currentUser) {
+      allowedUserIds = await this.usersService.getVisibleUserIds(currentUser);
+    }
+
     // Add user filter if provided
     if (userId) {
-      query.userId = userId;
+      // If we have allowed user IDs, make sure the requested user is in the list
+      if (allowedUserIds && !allowedUserIds.includes(userId)) {
+        // User doesn't have access to this user's data
+        return {
+          data: [],
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+        };
+      }
+      // User has access - filter by this specific user
+      query.userId = new Types.ObjectId(userId);
+    } else if (allowedUserIds) {
+      // Filter by allowed user IDs
+      query.userId = { $in: allowedUserIds.map(id => new Types.ObjectId(id)) };
     }
 
     // Calculate pagination
@@ -238,19 +263,25 @@ export class AttendanceService {
       }
     ];
 
-    // Add location filters
+    // Add location filters (ensure values are strings)
     const matchStage: any = {};
     const centerFilter = center || taluka;
-    if (state) matchStage['user.state'] = { $regex: state, $options: 'i' };
-    if (city) matchStage['user.city'] = { $regex: city, $options: 'i' };
-    if (centerFilter) matchStage['user.center'] = { $regex: centerFilter, $options: 'i' };
+    if (state && typeof state === 'string' && state.trim()) {
+      matchStage['user.state'] = { $regex: String(state).trim(), $options: 'i' };
+    }
+    if (city && typeof city === 'string' && city.trim()) {
+      matchStage['user.city'] = { $regex: String(city).trim(), $options: 'i' };
+    }
+    if (centerFilter && typeof centerFilter === 'string' && centerFilter.trim()) {
+      matchStage['user.center'] = { $regex: String(centerFilter).trim(), $options: 'i' };
+    }
 
     if (Object.keys(matchStage).length > 0) {
       pipeline.push({ $match: matchStage });
     }
 
     // Add search filter if provided (after lookup to search in user fields)
-    if (search && search.trim()) {
+    if (search && typeof search === 'string' && search.trim()) {
       const searchTerm = search.trim();
       pipeline.push({
         $match: {
@@ -567,5 +598,20 @@ export class AttendanceService {
     }
 
     await this.attendanceModel.findByIdAndDelete(id);
+  }
+
+  // Helper method to check if user has access to a specific user's attendance
+  async checkUserAccess(currentUser: any, targetUserId: string): Promise<boolean> {
+    const allowedUserIds = await this.usersService.getVisibleUserIds(currentUser);
+    if (!allowedUserIds) {
+      // Super admin or no restrictions
+      return true;
+    }
+    return allowedUserIds.includes(targetUserId);
+  }
+
+  // Helper method to get attendance record by ID
+  async getAttendanceById(id: string): Promise<Attendance | null> {
+    return this.attendanceModel.findById(id);
   }
 }

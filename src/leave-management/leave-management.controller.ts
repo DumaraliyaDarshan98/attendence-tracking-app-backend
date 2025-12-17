@@ -477,6 +477,7 @@ export class LeaveManagementController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getAllLeaveRequests(
+    @Request() req: any,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
     @Query('status') status?: string,
@@ -500,7 +501,8 @@ export class LeaveManagementController {
     const result = await this.leaveManagementService.getAllLeaveRequests(
       parseInt(page),
       parseInt(limit),
-      filters
+      filters,
+      req.user
     );
     return {
       code: 200,

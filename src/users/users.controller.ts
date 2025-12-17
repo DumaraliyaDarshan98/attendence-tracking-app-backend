@@ -281,7 +281,7 @@ export class UsersController {
     }
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async findAll(@Query() query: PaginationQueryDto) {
+  async findAll(@Request() req, @Query() query: PaginationQueryDto) {
     const result = await this.usersService.findAll({
       page: query.page,
       limit: query.limit,
@@ -291,7 +291,7 @@ export class UsersController {
       state: query.state,
       city: query.city,
       center: query.center,
-    });
+    }, req.user);
     return result;
   }
 
@@ -334,7 +334,19 @@ export class UsersController {
   })
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async findOne(@Param('id') id: string) {
+  @ApiResponse({ status: 403, description: 'Forbidden - Access denied' })
+  async findOne(@Request() req: any, @Param('id') id: string) {
+    // Check if current user has access to this user's data
+    const allowedUserIds = await this.usersService.getVisibleUserIds(req.user);
+    if (allowedUserIds && !allowedUserIds.includes(id)) {
+      return {
+        code: 403,
+        status: 'Forbidden',
+        message: 'You do not have permission to access this user\'s data',
+        timestamp: DateUtil.toISOStringIST(new Date()),
+        path: `/api/users/${id}`
+      };
+    }
     return this.usersService.findOne(id);
   }
 
@@ -399,7 +411,19 @@ export class UsersController {
   @ApiResponse({ status: 400, description: 'Bad request - validation error' })
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Access denied' })
   async update(@Request() req, @Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
+    // Check if current user has access to this user's data
+    const allowedUserIds = await this.usersService.getVisibleUserIds(req.user);
+    if (allowedUserIds && !allowedUserIds.includes(id)) {
+      return {
+        code: 403,
+        status: 'Forbidden',
+        message: 'You do not have permission to update this user\'s data',
+        timestamp: DateUtil.toISOStringIST(new Date()),
+        path: `/api/users/${id}`
+      };
+    }
     return this.usersService.update(id, updateUserDto, { _id: req.user?._id, email: req.user?.email });
   }
 
@@ -411,7 +435,19 @@ export class UsersController {
   @ApiResponse({ status: 204, description: 'User deleted successfully' })
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Access denied' })
   async remove(@Request() req, @Param('id') id: string) {
+    // Check if current user has access to this user's data
+    const allowedUserIds = await this.usersService.getVisibleUserIds(req.user);
+    if (allowedUserIds && !allowedUserIds.includes(id)) {
+      return {
+        code: 403,
+        status: 'Forbidden',
+        message: 'You do not have permission to delete this user',
+        timestamp: DateUtil.toISOStringIST(new Date()),
+        path: `/api/users/${id}`
+      };
+    }
     return this.usersService.remove(id, { _id: req.user?._id, email: req.user?.email });
   }
 
@@ -471,7 +507,19 @@ export class UsersController {
   })
   @ApiResponse({ status: 404, description: 'User not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
+  @ApiResponse({ status: 403, description: 'Forbidden - Access denied' })
   async logoutFromAllDevices(@Request() req, @Param('id') id: string) {
+    // Check if current user has access to this user's data
+    const allowedUserIds = await this.usersService.getVisibleUserIds(req.user);
+    if (allowedUserIds && !allowedUserIds.includes(id)) {
+      return {
+        code: 403,
+        status: 'Forbidden',
+        message: 'You do not have permission to logout this user',
+        timestamp: DateUtil.toISOStringIST(new Date()),
+        path: `/api/users/${id}/logout-all-devices`
+      };
+    }
     await this.usersService.logoutFromAllDevices(id, { _id: req.user?._id, email: req.user?.email });
     return {
       code: 200,
@@ -480,5 +528,88 @@ export class UsersController {
       timestamp: DateUtil.toISOStringIST(new Date()),
       path: `/api/users/${id}/logout-all-devices`
     };
+  }
+
+  @Get(':id/report/download')
+  @UseGuards(AuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Download comprehensive user report (Protected endpoint)' })
+  @ApiParam({ name: 'id', description: 'User ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
+  @ApiQuery({ name: 'startDate', required: true, description: 'Start date (YYYY-MM-DD)', example: '2024-01-01' })
+  @ApiQuery({ name: 'endDate', required: true, description: 'End date (YYYY-MM-DD)', example: '2024-01-31' })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'Report generated successfully',
+    content: {
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
+        schema: {
+          type: 'string',
+          format: 'binary'
+        }
+      }
+    }
+  })
+  @ApiResponse({ status: 404, description: 'User not found' })
+  @ApiResponse({ status: 400, description: 'Invalid date range' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async downloadComprehensiveReport(
+    @Request() req: any,
+    @Param('id') id: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
+    @Res() res: Response
+  ) {
+    if (!startDate || !endDate) {
+      return res.status(400).json({
+        code: 400,
+        status: 'Bad Request',
+        message: 'Start date and end date are required',
+        timestamp: DateUtil.toISOStringIST(new Date()),
+        path: `/api/users/${id}/report/download`
+      });
+    }
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    if (isNaN(start.getTime()) || isNaN(end.getTime())) {
+      return res.status(400).json({
+        code: 400,
+        status: 'Bad Request',
+        message: 'Invalid date format. Use YYYY-MM-DD',
+        timestamp: DateUtil.toISOStringIST(new Date()),
+        path: `/api/users/${id}/report/download`
+      });
+    }
+
+    if (start > end) {
+      return res.status(400).json({
+        code: 400,
+        status: 'Bad Request',
+        message: 'Start date cannot be after end date',
+        timestamp: DateUtil.toISOStringIST(new Date()),
+        path: `/api/users/${id}/report/download`
+      });
+    }
+
+    // Check if current user has access to this user's data
+    const allowedUserIds = await this.usersService.getVisibleUserIds(req.user);
+    if (allowedUserIds && !allowedUserIds.includes(id)) {
+      return res.status(403).json({
+        code: 403,
+        status: 'Forbidden',
+        message: 'You do not have permission to access this user\'s report',
+        timestamp: DateUtil.toISOStringIST(new Date()),
+        path: `/api/users/${id}/report/download`
+      });
+    }
+
+    const buffer = await this.usersService.generateComprehensiveReport(id, startDate, endDate);
+    const user = await this.usersService.findOne(id);
+    const fileName = `User_Report_${user.firstname}_${user.lastname}_${startDate}_to_${endDate}.xlsx`;
+    
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+    res.send(buffer);
   }
 } 

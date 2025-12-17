@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { DashboardController } from './dashboard.controller';
@@ -20,7 +20,7 @@ import { appConfig } from '../config/app.config';
             secret: appConfig.jwtSecret,
             signOptions: { expiresIn: appConfig.jwtExpiresIn },
         }),
-        UsersModule,
+        forwardRef(() => UsersModule),
     ],
     controllers: [DashboardController],
     providers: [DashboardService],

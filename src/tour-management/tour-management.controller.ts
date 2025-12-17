@@ -81,6 +81,7 @@ export class TourManagementController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async findAll(
+    @Request() req: any,
     @Query() query: PaginationQueryDto,
     @Query('status') status?: string,
     @Query('assignedTo') assignedTo?: string,
@@ -99,7 +100,7 @@ export class TourManagementController {
       endDate,
     };
 
-    const result = await this.tourManagementService.findAll(page, limit, filters);
+    const result = await this.tourManagementService.findAll(page, limit, filters, req.user);
 
     return result;
     // return {
@@ -262,10 +263,11 @@ export class TourManagementController {
   @ApiResponse({ status: 400, description: 'Bad Request - Invalid dates' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getToursByDateRange(
+    @Request() req: any,
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
   ) {
-    const tours = await this.tourManagementService.getToursByDateRange(startDate, endDate);
+    const tours = await this.tourManagementService.getToursByDateRange(startDate, endDate, req.user);
     return tours;
   }
 

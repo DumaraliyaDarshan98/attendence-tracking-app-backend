@@ -44,6 +44,12 @@ export class User {
   @Prop({ required: false })
   designation?: string;
 
+  @Prop({ type: [String], default: [] })
+  reportingState?: string[];
+
+  @Prop({ type: [String], default: [] })
+  reportingCity?: string[];
+
   @Prop({ default: true })
   isActive: boolean;
 }

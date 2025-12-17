@@ -102,4 +102,20 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   readonly designation?: string;
+
+  @ApiPropertyOptional({
+    description: 'Reporting states (array of state names)',
+    example: ['Maharashtra', 'Gujarat'],
+    type: [String],
+  })
+  @IsOptional()
+  readonly reportingState?: string[];
+
+  @ApiPropertyOptional({
+    description: 'Reporting cities (array of city names)',
+    example: ['Mumbai', 'Pune', 'Ahmedabad'],
+    type: [String],
+  })
+  @IsOptional()
+  readonly reportingCity?: string[];
 } 

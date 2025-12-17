@@ -1,8 +1,9 @@
-import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
+import { Injectable, BadRequestException, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Holiday, HolidayDocument } from '../models/holiday.model';
 import { LeaveRequest, LeaveRequestDocument } from '../models/leave-request.model';
+import { UsersService } from '../users/users.service';
 import { DateUtil } from '../common/utils';
 
 @Injectable()
@@ -10,6 +11,8 @@ export class LeaveManagementService {
   constructor(
     @InjectModel(Holiday.name) private holidayModel: Model<HolidayDocument>,
     @InjectModel(LeaveRequest.name) private leaveRequestModel: Model<LeaveRequestDocument>,
+    @Inject(forwardRef(() => UsersService))
+    private usersService: UsersService,
   ) {}
 
   // Holiday Management Methods
@@ -96,7 +99,8 @@ export class LeaveManagementService {
       endDate?: string;
       isHalfDay?: boolean;
       approvedBy?: string;
-    } = {}
+    } = {},
+    currentUser?: any
   ): Promise<{ data: LeaveRequest[], total: number, page: number, limit: number, totalPages: number }> {
     const filter: any = {};
 
@@ -107,19 +111,51 @@ export class LeaveManagementService {
     if (filters.leaveType) {
       filter.leaveType = filters.leaveType;
     }
+    
+    // Apply reporting state/city filtering
+    let allowedUserIds: string[] | null = null;
+    if (currentUser) {
+      allowedUserIds = await this.usersService.getVisibleUserIds(currentUser);
+    }
+
     if (filters.userId) {
       filter.userId = new Types.ObjectId(filters.userId);
+      // If we have allowed user IDs, make sure the requested user is in the list
+      if (allowedUserIds && !allowedUserIds.includes(filters.userId)) {
+        // User doesn't have access to this user's data
+        return {
+          data: [],
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+        };
+      }
+    } else if (allowedUserIds) {
+      // Filter by allowed user IDs
+      filter.userId = { $in: allowedUserIds.map(id => new Types.ObjectId(id)) };
     }
+
     if (filters.isHalfDay !== undefined) {
       filter.isHalfDay = filters.isHalfDay;
     }
     if (filters.approvedBy) {
       filter.approvedBy = new Types.ObjectId(filters.approvedBy);
+      // If we have allowed user IDs, make sure the requested user is in the list
+      if (allowedUserIds && !allowedUserIds.includes(filters.approvedBy)) {
+        return {
+          data: [],
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+        };
+      }
     }
 
     // Date range filter
     if (filters.startDate || filters.endDate) {
-      filter.$and = [];
+      filter.$and = filter.$and || [];
       
       if (filters.startDate) {
         filter.$and.push({ startDate: { $gte: new Date(filters.startDate) } });

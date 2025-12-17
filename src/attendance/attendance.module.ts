@@ -1,4 +1,4 @@
-import { Module, OnModuleInit } from '@nestjs/common';
+import { Module, OnModuleInit, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { ScheduleModule } from '@nestjs/schedule';
@@ -21,7 +21,7 @@ import { appConfig } from '../config/app.config';
       signOptions: { expiresIn: appConfig.jwtExpiresIn },
     }),
     ScheduleModule.forRoot(), // Enable scheduled tasks
-    UsersModule,
+    forwardRef(() => UsersModule),
     SessionsModule,
   ],
   controllers: [AttendanceController],

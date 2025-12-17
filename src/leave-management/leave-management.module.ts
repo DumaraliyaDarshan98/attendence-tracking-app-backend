@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { Module, forwardRef } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { LeaveManagementController } from './leave-management.controller';
@@ -19,7 +19,7 @@ import { appConfig } from '../config/app.config';
       secret: appConfig.jwtSecret,
       signOptions: { expiresIn: appConfig.jwtExpiresIn },
     }),
-    UsersModule,
+    forwardRef(() => UsersModule),
     SessionsModule
   ],
   controllers: [LeaveManagementController],

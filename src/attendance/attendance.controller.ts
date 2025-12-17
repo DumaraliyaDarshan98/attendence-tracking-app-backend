@@ -427,6 +427,7 @@ export class AttendanceController {
   @ApiResponse({ status: 400, description: 'Invalid date format' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getAllUsersAttendance(
+    @Request() req: any,
     @Query('date') date: string,
     @Query('userId') userId?: string,
     @Query('page') page: string = '1',
@@ -445,7 +446,8 @@ export class AttendanceController {
       search,
       state,
       city,
-      center || taluka
+      center || taluka,
+      req.user
     );
 
     return {
@@ -497,7 +499,19 @@ export class AttendanceController {
   })
   @ApiResponse({ status: 400, description: 'Invalid request data' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async createAttendanceRecord(@Body() createAttendanceDto: CreateAttendanceDto) {
+  @ApiResponse({ status: 403, description: 'Forbidden - Access denied' })
+  async createAttendanceRecord(@Request() req: any, @Body() createAttendanceDto: CreateAttendanceDto) {
+    // Check if current user has access to create attendance for this user
+    const hasAccess = await this.attendanceService.checkUserAccess(req.user, createAttendanceDto.userId);
+    if (!hasAccess) {
+      return {
+        code: 403,
+        status: 'Forbidden',
+        message: 'You do not have permission to create attendance for this user',
+        timestamp: DateUtil.toISOStringIST(new Date()),
+        path: '/api/attendance/admin/create'
+      };
+    }
     const attendance = await this.attendanceService.createAttendanceRecord(createAttendanceDto);
     return {
       code: 201,
@@ -544,12 +558,38 @@ export class AttendanceController {
   @ApiResponse({ status: 404, description: 'Attendance record not found' })
   @ApiResponse({ status: 400, description: 'Invalid request data' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async updateAttendanceRecord(@Param('id') id: string, @Body() updateAttendanceDto: UpdateAttendanceDto) {
-    const attendance = await this.attendanceService.updateAttendanceRecord(id, updateAttendanceDto);
+  @ApiResponse({ status: 403, description: 'Forbidden - Access denied' })
+  async updateAttendanceRecord(@Request() req: any, @Param('id') id: string, @Body() updateAttendanceDto: UpdateAttendanceDto) {
+    // First get the attendance record to check the userId
+    const attendance = await this.attendanceService.getAttendanceById(id);
+    if (!attendance) {
+      return {
+        code: 404,
+        status: 'Not Found',
+        message: 'Attendance record not found',
+        timestamp: DateUtil.toISOStringIST(new Date()),
+        path: `/api/attendance/admin/update/${id}`
+      };
+    }
+
+    // Check if current user has access to update attendance for this user
+    const userIdToCheck = updateAttendanceDto.userId || attendance.userId.toString();
+    const hasAccess = await this.attendanceService.checkUserAccess(req.user, userIdToCheck);
+    if (!hasAccess) {
+      return {
+        code: 403,
+        status: 'Forbidden',
+        message: 'You do not have permission to update attendance for this user',
+        timestamp: DateUtil.toISOStringIST(new Date()),
+        path: `/api/attendance/admin/update/${id}`
+      };
+    }
+
+    const updatedAttendance = await this.attendanceService.updateAttendanceRecord(id, updateAttendanceDto);
     return {
       code: 200,
       status: 'OK',
-      data: attendance,
+      data: updatedAttendance,
       timestamp: DateUtil.toISOStringIST(new Date()),
       path: `/api/attendance/admin/update/${id}`
     };
@@ -574,7 +614,32 @@ export class AttendanceController {
   })
   @ApiResponse({ status: 404, description: 'Attendance record not found' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  async deleteAttendanceRecord(@Param('id') id: string) {
+  @ApiResponse({ status: 403, description: 'Forbidden - Access denied' })
+  async deleteAttendanceRecord(@Request() req: any, @Param('id') id: string) {
+    // First get the attendance record to check the userId
+    const attendance = await this.attendanceService.getAttendanceById(id);
+    if (!attendance) {
+      return {
+        code: 404,
+        status: 'Not Found',
+        message: 'Attendance record not found',
+        timestamp: DateUtil.toISOStringIST(new Date()),
+        path: `/api/attendance/admin/delete/${id}`
+      };
+    }
+
+    // Check if current user has access to delete attendance for this user
+    const hasAccess = await this.attendanceService.checkUserAccess(req.user, attendance.userId.toString());
+    if (!hasAccess) {
+      return {
+        code: 403,
+        status: 'Forbidden',
+        message: 'You do not have permission to delete attendance for this user',
+        timestamp: DateUtil.toISOStringIST(new Date()),
+        path: `/api/attendance/admin/delete/${id}`
+      };
+    }
+
     await this.attendanceService.deleteAttendanceRecord(id);
     return {
       code: 200,
