@@ -3,9 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { UsersService } from '../users/users.service';
 import { RolesService } from '../roles/roles.service';
 import { SessionsService } from '../sessions/sessions.service';
-import { UserDocument } from '../models/user.model';
 import { RolePermission } from '../models/role.model';
-import { Types } from 'mongoose';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -125,4 +123,23 @@ export class AuthService {
 
     return true;
   }
-} 
+
+  async changePassword(userId: string, oldPassword: string, newPassword: string): Promise<void> {
+    const user = await this.usersService.findByIdWithPassword(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const isValidOldPassword = await this.usersService.validatePassword(user, oldPassword);
+    if (!isValidOldPassword) {
+      throw new UnauthorizedException('Old password is incorrect');
+    }
+
+    await this.usersService.update(
+      userId,
+      { password: newPassword },
+      { _id: (user._id as any) || userId, email: (user as any).email },
+    );
+  }
+}
+

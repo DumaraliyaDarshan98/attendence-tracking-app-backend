@@ -177,6 +177,10 @@ export class UsersService {
     return this.userModel.findOne({ email }).exec();
   }
 
+  async findByIdWithPassword(id: string): Promise<UserDocument | null> {
+    return this.userModel.findById(id).exec();
+  }
+
   async update(id: string, updateUserDto: any, actor?: { _id: string; email?: string } | null): Promise<User> {
     const { password, ...updateData } = updateUserDto;
 

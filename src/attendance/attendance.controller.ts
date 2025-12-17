@@ -370,6 +370,7 @@ export class AttendanceController {
   @ApiQuery({ name: 'search', required: false, description: 'Search by employee name, email, or mobile number', example: 'john' })
   @ApiQuery({ name: 'state', required: false, description: 'Filter by state', example: 'Maharashtra' })
   @ApiQuery({ name: 'city', required: false, description: 'Filter by city', example: 'Mumbai' })
+  @ApiQuery({ name: 'taluka', required: false, description: 'Filter by taluka/center', example: 'Downtown' })
   @ApiQuery({ name: 'center', required: false, description: 'Filter by center', example: 'Downtown' })
   @ApiResponse({
     status: 200,
@@ -433,6 +434,7 @@ export class AttendanceController {
     @Query('search') search?: string,
     @Query('state') state?: string,
     @Query('city') city?: string,
+    @Query('taluka') taluka?: string,
     @Query('center') center?: string,
   ) {
     const result = await this.attendanceService.getAllUsersAttendance(
@@ -443,7 +445,7 @@ export class AttendanceController {
       search,
       state,
       city,
-      center
+      center || taluka
     );
 
     return {

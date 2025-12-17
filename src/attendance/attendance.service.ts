@@ -195,7 +195,8 @@ export class AttendanceService {
     search?: string,
     state?: string,
     city?: string,
-    center?: string
+    center?: string,
+    taluka?: string
   ): Promise<{ data: Attendance[]; total: number; page: number; limit: number; totalPages: number }> {
     const startDate = DateUtil.parseDateToISTStartOfDay(date);
     const endDate = DateUtil.parseDateToISTEndOfDay(date);
@@ -239,9 +240,10 @@ export class AttendanceService {
 
     // Add location filters
     const matchStage: any = {};
+    const centerFilter = center || taluka;
     if (state) matchStage['user.state'] = { $regex: state, $options: 'i' };
     if (city) matchStage['user.city'] = { $regex: city, $options: 'i' };
-    if (center) matchStage['user.center'] = { $regex: center, $options: 'i' };
+    if (centerFilter) matchStage['user.center'] = { $regex: centerFilter, $options: 'i' };
 
     if (Object.keys(matchStage).length > 0) {
       pipeline.push({ $match: matchStage });

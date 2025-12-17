@@ -1,9 +1,10 @@
-import { Controller, Post, Body, HttpCode, HttpStatus, UnauthorizedException, NotFoundException, Request, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, HttpCode, HttpStatus, UnauthorizedException, NotFoundException, Request, UseGuards, BadRequestException } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBody, ApiBearerAuth } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { SendOtpDto } from './dto/send-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { AuthGuard } from '../guards/auth.guard';
 
 @ApiTags('Authentication')
@@ -215,5 +216,53 @@ export class AuthController {
       message: 'Password reset successfully',
       success: result,
     };
+  }
+
+  @Post('change-password')
+  @UseGuards(AuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({ summary: 'Change password for authenticated user' })
+  @ApiBody({
+    description: 'Change password payload',
+    schema: {
+      type: 'object',
+      properties: {
+        oldPassword: { type: 'string', example: 'oldPassword123' },
+        newPassword: { type: 'string', example: 'newPassword123', minLength: 8 },
+        confirmPassword: { type: 'string', example: 'newPassword123', minLength: 8 },
+      },
+      required: ['oldPassword', 'newPassword', 'confirmPassword'],
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Password changed successfully',
+    schema: {
+      type: 'object',
+      properties: {
+        message: { type: 'string', example: 'Password changed successfully' },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Bad request - validation error' })
+  @ApiResponse({ status: 401, description: 'Unauthorized or old password incorrect' })
+  async changePassword(@Body() changePasswordDto: ChangePasswordDto, @Request() req) {
+    if (changePasswordDto.newPassword !== changePasswordDto.confirmPassword) {
+      throw new BadRequestException('New password and confirm password do not match');
+    }
+
+    const userId = req.user?._id?.toString() || req.user?.id?.toString();
+    if (!userId) {
+      throw new UnauthorizedException('User not found in request');
+    }
+
+    await this.authService.changePassword(
+      userId,
+      changePasswordDto.oldPassword,
+      changePasswordDto.newPassword,
+    );
+
+    return { message: 'Password changed successfully' };
   }
 } 
