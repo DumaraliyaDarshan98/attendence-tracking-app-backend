@@ -43,6 +43,10 @@ export class LeaveRequest {
 
   @Prop()
   notes?: string;
+
+  // Timestamps (automatically managed by Mongoose)
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export const LeaveRequestSchema = SchemaFactory.createForClass(LeaveRequest);

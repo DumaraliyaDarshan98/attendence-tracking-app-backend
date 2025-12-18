@@ -52,6 +52,10 @@ export class User {
 
   @Prop({ default: true })
   isActive: boolean;
+
+  // Timestamps (automatically managed by Mongoose)
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export const UserSchema = SchemaFactory.createForClass(User); 
