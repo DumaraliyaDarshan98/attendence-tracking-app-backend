@@ -43,6 +43,9 @@ export class LeaveRequest {
 
   @Prop()
   notes?: string;
+
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export const LeaveRequestSchema = SchemaFactory.createForClass(LeaveRequest);

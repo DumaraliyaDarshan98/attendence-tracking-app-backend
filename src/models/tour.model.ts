@@ -76,6 +76,9 @@ export class Tour {
 
   @Prop({ default: true })
   isActive: boolean;
+
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export const TourSchema = SchemaFactory.createForClass(Tour);
