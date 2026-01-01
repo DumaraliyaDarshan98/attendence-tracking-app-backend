@@ -512,8 +512,10 @@ export class AttendanceService {
     checkOutLongitude?: number;
   }): Promise<Attendance> {
     const date = DateUtil.parseDateToISTStartOfDay(createData.date);
-    const checkInTime = new Date(`${createData.date}T${createData.checkInTime}`);
-    const checkOutTime = createData.checkOutTime ? new Date(`${createData.date}T${createData.checkOutTime}`) : undefined;
+    // Use parseDateTimeToIST to properly handle IST timezone when parsing time strings
+    // This ensures that "11:55" is interpreted as 11:55 IST, not UTC
+    const checkInTime = DateUtil.parseDateTimeToIST(`${createData.date}T${createData.checkInTime}`);
+    const checkOutTime = createData.checkOutTime ? DateUtil.parseDateTimeToIST(`${createData.date}T${createData.checkOutTime}`) : undefined;
 
     // Calculate total hours if checkout time is provided
     let totalHours: number | undefined;
@@ -563,12 +565,20 @@ export class AttendanceService {
     if (updateData.userId) attendance.userId = new Types.ObjectId(updateData.userId);
     if (updateData.date) attendance.date = DateUtil.parseDateToISTStartOfDay(updateData.date);
     if (updateData.checkInTime) {
-      const date = updateData.date || attendance.date.toISOString().split('T')[0];
-      attendance.checkInTime = new Date(`${date}T${updateData.checkInTime}`);
+      // Use formatDateToISTString to get the date in IST format (not UTC)
+      // This ensures we use the correct date when combining with time
+      const date = updateData.date || DateUtil.formatDateToISTString(attendance.date);
+      // Use parseDateTimeToIST to properly handle IST timezone when parsing time strings
+      // This ensures that "11:55" is interpreted as 11:55 IST, not UTC
+      attendance.checkInTime = DateUtil.parseDateTimeToIST(`${date}T${updateData.checkInTime}`);
     }
     if (updateData.checkOutTime) {
-      const date = updateData.date || attendance.date.toISOString().split('T')[0];
-      attendance.checkOutTime = new Date(`${date}T${updateData.checkOutTime}`);
+      // Use formatDateToISTString to get the date in IST format (not UTC)
+      // This ensures we use the correct date when combining with time
+      const date = updateData.date || DateUtil.formatDateToISTString(attendance.date);
+      // Use parseDateTimeToIST to properly handle IST timezone when parsing time strings
+      // This ensures that "11:56" is interpreted as 11:56 IST, not UTC
+      attendance.checkOutTime = DateUtil.parseDateTimeToIST(`${date}T${updateData.checkOutTime}`);
     }
     if (updateData.status) attendance.status = updateData.status;
     if (updateData.notes !== undefined) attendance.notes = updateData.notes;
