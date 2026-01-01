@@ -13,7 +13,7 @@ import { DateUtil } from '../common/utils';
 @ApiTags('Users')
 @Controller('users')
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Post('register')
   @ApiOperation({ summary: 'Register a new user (Public endpoint)' })
@@ -38,8 +38,8 @@ export class UsersController {
       required: ['firstname', 'lastname', 'email', 'password', 'mobilenumber', 'addressline1', 'city', 'state', 'pincode']
     }
   })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'User registered successfully',
     schema: {
       type: 'object',
@@ -97,8 +97,8 @@ export class UsersController {
   @UseGuards(AuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get current user profile' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'User profile retrieved successfully',
     schema: {
       type: 'object',
@@ -176,8 +176,8 @@ export class UsersController {
       required: ['firstname', 'lastname', 'email', 'password', 'mobilenumber', 'addressline1', 'city', 'state', 'pincode']
     }
   })
-  @ApiResponse({ 
-    status: 201, 
+  @ApiResponse({
+    status: 201,
     description: 'User created successfully',
     schema: {
       type: 'object',
@@ -227,8 +227,8 @@ export class UsersController {
   @ApiQuery({ name: 'state', required: false, description: 'Filter by state', example: 'Maharashtra' })
   @ApiQuery({ name: 'city', required: false, description: 'Filter by city', example: 'Mumbai' })
   @ApiQuery({ name: 'center', required: false, description: 'Filter by center/taluka', example: 'Downtown' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Users retrieved successfully',
     schema: {
       type: 'object',
@@ -300,8 +300,8 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Get user by ID (Protected endpoint)' })
   @ApiParam({ name: 'id', description: 'User ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'User retrieved successfully',
     schema: {
       type: 'object',
@@ -337,16 +337,16 @@ export class UsersController {
   @ApiResponse({ status: 403, description: 'Forbidden - Access denied' })
   async findOne(@Request() req: any, @Param('id') id: string) {
     // Check if current user has access to this user's data
-    const allowedUserIds = await this.usersService.getVisibleUserIds(req.user);
-    if (allowedUserIds && !allowedUserIds.includes(id)) {
-      return {
-        code: 403,
-        status: 'Forbidden',
-        message: 'You do not have permission to access this user\'s data',
-        timestamp: DateUtil.toISOStringIST(new Date()),
-        path: `/api/users/${id}`
-      };
-    }
+    // const allowedUserIds = await this.usersService.getVisibleUserIds(req.user);
+    // if (allowedUserIds && !allowedUserIds.includes(id)) {
+    //   return {
+    //     code: 403,
+    //     status: 'Forbidden',
+    //     message: 'You do not have permission to access this user\'s data',
+    //     timestamp: DateUtil.toISOStringIST(new Date()),
+    //     path: `/api/users/${id}`
+    //   };
+    // }
     return this.usersService.findOne(id);
   }
 
@@ -376,8 +376,8 @@ export class UsersController {
       }
     }
   })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'User updated successfully',
     schema: {
       type: 'object',
@@ -414,16 +414,16 @@ export class UsersController {
   @ApiResponse({ status: 403, description: 'Forbidden - Access denied' })
   async update(@Request() req, @Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
     // Check if current user has access to this user's data
-    const allowedUserIds = await this.usersService.getVisibleUserIds(req.user);
-    if (allowedUserIds && !allowedUserIds.includes(id)) {
-      return {
-        code: 403,
-        status: 'Forbidden',
-        message: 'You do not have permission to update this user\'s data',
-        timestamp: DateUtil.toISOStringIST(new Date()),
-        path: `/api/users/${id}`
-      };
-    }
+    // const allowedUserIds = await this.usersService.getVisibleUserIds(req.user);
+    // if (allowedUserIds && !allowedUserIds.includes(id)) {
+    //   return {
+    //     code: 403,
+    //     status: 'Forbidden',
+    //     message: 'You do not have permission to update this user\'s data',
+    //     timestamp: DateUtil.toISOStringIST(new Date()),
+    //     path: `/api/users/${id}`
+    //   };
+    // }
     return this.usersService.update(id, updateUserDto, { _id: req.user?._id, email: req.user?.email });
   }
 
@@ -438,16 +438,16 @@ export class UsersController {
   @ApiResponse({ status: 403, description: 'Forbidden - Access denied' })
   async remove(@Request() req, @Param('id') id: string) {
     // Check if current user has access to this user's data
-    const allowedUserIds = await this.usersService.getVisibleUserIds(req.user);
-    if (allowedUserIds && !allowedUserIds.includes(id)) {
-      return {
-        code: 403,
-        status: 'Forbidden',
-        message: 'You do not have permission to delete this user',
-        timestamp: DateUtil.toISOStringIST(new Date()),
-        path: `/api/users/${id}`
-      };
-    }
+    // const allowedUserIds = await this.usersService.getVisibleUserIds(req.user);
+    // if (allowedUserIds && !allowedUserIds.includes(id)) {
+    //   return {
+    //     code: 403,
+    //     status: 'Forbidden',
+    //     message: 'You do not have permission to delete this user',
+    //     timestamp: DateUtil.toISOStringIST(new Date()),
+    //     path: `/api/users/${id}`
+    //   };
+    // }
     return this.usersService.remove(id, { _id: req.user?._id, email: req.user?.email });
   }
 
@@ -487,18 +487,18 @@ export class UsersController {
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({ summary: 'Logout user from all devices (Admin endpoint)' })
   @ApiParam({ name: 'id', description: 'User ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'User logged out from all devices successfully',
     schema: {
       type: 'object',
       properties: {
         code: { type: 'number', example: 200 },
         status: { type: 'string', example: 'OK' },
-        message: { 
-          type: 'string', 
-          example: 'User logged out from all devices successfully', 
-          description: 'Success message' 
+        message: {
+          type: 'string',
+          example: 'User logged out from all devices successfully',
+          description: 'Success message'
         },
         timestamp: { type: 'string', format: 'date-time' },
         path: { type: 'string', example: '/api/users/:id/logout-all-devices' }
@@ -510,16 +510,16 @@ export class UsersController {
   @ApiResponse({ status: 403, description: 'Forbidden - Access denied' })
   async logoutFromAllDevices(@Request() req, @Param('id') id: string) {
     // Check if current user has access to this user's data
-    const allowedUserIds = await this.usersService.getVisibleUserIds(req.user);
-    if (allowedUserIds && !allowedUserIds.includes(id)) {
-      return {
-        code: 403,
-        status: 'Forbidden',
-        message: 'You do not have permission to logout this user',
-        timestamp: DateUtil.toISOStringIST(new Date()),
-        path: `/api/users/${id}/logout-all-devices`
-      };
-    }
+    // const allowedUserIds = await this.usersService.getVisibleUserIds(req.user);
+    // if (allowedUserIds && !allowedUserIds.includes(id)) {
+    //   return {
+    //     code: 403,
+    //     status: 'Forbidden',
+    //     message: 'You do not have permission to logout this user',
+    //     timestamp: DateUtil.toISOStringIST(new Date()),
+    //     path: `/api/users/${id}/logout-all-devices`
+    //   };
+    // }
     await this.usersService.logoutFromAllDevices(id, { _id: req.user?._id, email: req.user?.email });
     return {
       code: 200,
@@ -537,8 +537,8 @@ export class UsersController {
   @ApiParam({ name: 'id', description: 'User ID', example: '64f8a1b2c3d4e5f6a7b8c9d0' })
   @ApiQuery({ name: 'startDate', required: true, description: 'Start date (YYYY-MM-DD)', example: '2024-01-01' })
   @ApiQuery({ name: 'endDate', required: true, description: 'End date (YYYY-MM-DD)', example: '2024-01-31' })
-  @ApiResponse({ 
-    status: 200, 
+  @ApiResponse({
+    status: 200,
     description: 'Report generated successfully',
     content: {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {
@@ -571,7 +571,7 @@ export class UsersController {
 
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
+
     if (isNaN(start.getTime()) || isNaN(end.getTime())) {
       return res.status(400).json({
         code: 400,
@@ -607,7 +607,7 @@ export class UsersController {
     const buffer = await this.usersService.generateComprehensiveReport(id, startDate, endDate);
     const user = await this.usersService.findOne(id);
     const fileName = `User_Report_${user.firstname}_${user.lastname}_${startDate}_to_${endDate}.xlsx`;
-    
+
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
     res.send(buffer);
