@@ -447,7 +447,103 @@ export class UsersService {
     }
 
     const visibleUsers = await this.userModel.find(userFilter).select('_id').exec();
-    return visibleUsers.map(u => (u._id as any).toString());
+    const ids = visibleUsers.map(u => (u._id as any).toString());
+    // Ensure current user can always see at least their own data when reporting scope matches no one
+    if (ids.length === 0) {
+      const selfId = (currentUser._id || currentUser.id)?.toString?.() || String(currentUser._id || currentUser.id);
+      return selfId ? [selfId] : [];
+    }
+    return ids;
+  }
+
+  /**
+   * Count users matching the same filters used for time logs: visibility (reporting) + state/city/center.
+   * Used for "Total Employees" on the time logs dashboard (all employees in scope, not just those with attendance that day).
+   */
+  async getCountByFilters(
+    currentUser: any,
+    state?: string,
+    city?: string,
+    center?: string,
+  ): Promise<number> {
+    const baseFilter: any = {};
+    const allowedUserIds = await this.getVisibleUserIds(currentUser);
+    if (allowedUserIds) {
+      baseFilter._id = { $in: allowedUserIds.map(id => new Types.ObjectId(id)) };
+    }
+    if (state && typeof state === 'string' && state.trim()) {
+      baseFilter.state = { $regex: String(state).trim(), $options: 'i' };
+    }
+    if (city && typeof city === 'string' && city.trim()) {
+      baseFilter.city = { $regex: String(city).trim(), $options: 'i' };
+    }
+    if (center && typeof center === 'string' && center.trim()) {
+      baseFilter.center = { $regex: String(center).trim(), $options: 'i' };
+    }
+    return this.userModel.countDocuments(baseFilter).exec();
+  }
+
+  /**
+   * Get user IDs that match visibility and optional state/city/center (for absent list etc.).
+   */
+  async getVisibleUserIdsByFilters(
+    currentUser: any,
+    state?: string,
+    city?: string,
+    center?: string,
+  ): Promise<string[]> {
+    const baseFilter: any = {};
+    const allowedUserIds = await this.getVisibleUserIds(currentUser);
+    if (allowedUserIds) {
+      baseFilter._id = { $in: allowedUserIds.map(id => new Types.ObjectId(id)) };
+    }
+    if (state && typeof state === 'string' && state.trim()) {
+      baseFilter.state = { $regex: String(state).trim(), $options: 'i' };
+    }
+    if (city && typeof city === 'string' && city.trim()) {
+      baseFilter.city = { $regex: String(city).trim(), $options: 'i' };
+    }
+    if (center && typeof center === 'string' && center.trim()) {
+      baseFilter.center = { $regex: String(center).trim(), $options: 'i' };
+    }
+    const users = await this.userModel.find(baseFilter).select('_id').lean().exec();
+    return users.map(u => (u._id as any).toString());
+  }
+
+  /**
+   * Get paginated users by IDs with optional search. Used for absent-user listing.
+   */
+  async getUsersByIdsPaginated(
+    ids: string[],
+    search?: string,
+    skip: number = 0,
+    limit: number = 10,
+  ): Promise<{ data: any[]; total: number }> {
+    if (!ids.length) {
+      return { data: [], total: 0 };
+    }
+    const filter: any = { _id: { $in: ids.map(id => new Types.ObjectId(id)) } };
+    if (search && typeof search === 'string' && search.trim()) {
+      const term = search.trim();
+      filter.$or = [
+        { firstname: { $regex: term, $options: 'i' } },
+        { lastname: { $regex: term, $options: 'i' } },
+        { email: { $regex: term, $options: 'i' } },
+        { mobilenumber: { $regex: term, $options: 'i' } },
+      ];
+    }
+    const [data, total] = await Promise.all([
+      this.userModel
+        .find(filter)
+        .select('firstname lastname email mobilenumber')
+        .sort({ firstname: 1, lastname: 1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .exec(),
+      this.userModel.countDocuments(filter).exec(),
+    ]);
+    return { data: data as any[], total };
   }
 
   async generateComprehensiveReport(userId: string, startDate: string, endDate: string): Promise<Buffer> {

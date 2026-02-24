@@ -189,7 +189,9 @@ export class AttendanceService {
     return this.attendanceModel.find({ userId }).sort({ date: -1 }).exec();
   }
 
-  // Admin method to get all users' attendance with filters and pagination
+  // Admin method to get all users' attendance with filters and pagination.
+  // Summary counts (totalEmployees, presentToday, lateToday, absentToday) are calculated
+  // from the full filtered dataset at DB level, not from the paginated page.
   async getAllUsersAttendance(
     date: string,
     userId?: string,
@@ -200,8 +202,32 @@ export class AttendanceService {
     city?: string,
     center?: string,
     taluka?: string,
-    currentUser?: any
-  ): Promise<{ data: Attendance[]; total: number; page: number; limit: number; totalPages: number }> {
+    currentUser?: any,
+    status?: string
+  ): Promise<{
+    data: Attendance[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    totalEmployees: number;
+    presentToday: number;
+    lateToday: number;
+    absentToday: number;
+  }> {
+    if (!date || typeof date !== 'string' || !date.trim()) {
+      return {
+        data: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        totalEmployees: 0,
+        presentToday: 0,
+        lateToday: 0,
+        absentToday: 0,
+      };
+    }
     const startDate = DateUtil.parseDateToISTStartOfDay(date);
     const endDate = DateUtil.parseDateToISTEndOfDay(date);
 
@@ -230,6 +256,10 @@ export class AttendanceService {
           page,
           limit,
           totalPages: 0,
+          totalEmployees: 0,
+          presentToday: 0,
+          lateToday: 0,
+          absentToday: 0,
         };
       }
       // User has access - filter by this specific user
@@ -241,31 +271,55 @@ export class AttendanceService {
 
     // Calculate pagination
     const skip = (page - 1) * limit;
+    const centerFilter = center || taluka;
+
+    // Summary counts depend ONLY on date (and visibility). Do not use state/city/taluka/search/status for summary.
+    const totalEmployees = await this.usersService.getCountByFilters(currentUser); // no location filters
+
+    // Derived status: same logic as frontend — 10:30 AM UTC cutoff for late.
+    // absent: backend status 'absent' or no checkInTime; late: checkInTime > 10:30 UTC; else present.
+    const derivedStatusExpr = {
+      $switch: {
+        branches: [
+          {
+            case: { $or: [{ $eq: ['$status', 'absent'] }, { $not: '$checkInTime' }] },
+            then: 'absent',
+          },
+          {
+            case: {
+              $gt: [
+                { $add: [{ $multiply: [{ $hour: '$checkInTime' }, 60] }, { $minute: '$checkInTime' }] },
+                630,
+              ],
+            },
+            then: 'late',
+          },
+        ],
+        default: 'present',
+      },
+    };
 
     // Build aggregation pipeline
     const pipeline: any[] = [
-      {
-        $match: query
-      },
+      { $match: query },
       {
         $lookup: {
           from: 'users',
           localField: 'userId',
           foreignField: '_id',
-          as: 'user'
-        }
+          as: 'user',
+        },
       },
       {
         $unwind: {
           path: '$user',
-          preserveNullAndEmptyArrays: true
-        }
-      }
+          preserveNullAndEmptyArrays: true,
+        },
+      },
     ];
 
     // Add location filters (ensure values are strings)
     const matchStage: any = {};
-    const centerFilter = center || taluka;
     if (state && typeof state === 'string' && state.trim()) {
       matchStage['user.state'] = { $regex: String(state).trim(), $options: 'i' };
     }
@@ -295,61 +349,166 @@ export class AttendanceService {
                 $regexMatch: {
                   input: { $concat: ['$user.firstname', ' ', '$user.lastname'] },
                   regex: searchTerm,
-                  options: 'i'
-                }
-              }
-            }
-          ]
-        }
+                  options: 'i',
+                },
+              },
+            },
+          ],
+        },
       });
     }
 
-    // Add sorting and pagination
-    pipeline.push(
-      {
-        $sort: { date: -1, sessionNumber: -1 }
+    // Add derived status for table data and total
+    pipeline.push({ $addFields: { derivedStatus: derivedStatusExpr } });
+
+    // Status filter for table data only (present | late)
+    const statusLower = status?.toLowerCase?.();
+    const statusFilter = (statusLower === 'present' || statusLower === 'late') ? statusLower : null;
+
+    // One status per user per day: late=3, present=2, absent=1 (for summary aggregation)
+    const statusPriorityExpr = {
+      $switch: {
+        branches: [
+          { case: { $eq: ['$derivedStatus', 'late'] }, then: 3 },
+          { case: { $eq: ['$derivedStatus', 'present'] }, then: 2 },
+        ],
+        default: 1,
       },
+    };
+
+    // Summary: depends ONLY on date (and visibility). Run separate aggregation with no state/city/search/status.
+    const summaryQuery: any = {
+      date: { $gte: startDate, $lte: endDate },
+      ...(query.userId && { userId: query.userId }),
+    };
+    const summaryPipeline = [
+      { $match: summaryQuery },
+      { $addFields: { derivedStatus: derivedStatusExpr } },
+      { $addFields: { statusPriority: statusPriorityExpr } },
+      { $group: { _id: '$userId', statusPriority: { $max: '$statusPriority' } } },
       {
-        $facet: {
-          data: [
-            { $skip: skip },
-            { $limit: limit },
-            {
-              $project: {
-                _id: 1,
-                userId: {
-                  _id: '$user._id',
-                  firstname: '$user.firstname',
-                  lastname: '$user.lastname',
-                  email: '$user.email',
-                  mobilenumber: '$user.mobilenumber'
-                },
-                date: 1,
-                checkInTime: 1,
-                checkOutTime: 1,
-                isCheckedOut: 1,
-                totalHours: 1,
-                status: 1,
-                sessionNumber: 1,
-                checkInLatitude: 1,
-                checkInLongitude: 1,
-                checkOutLatitude: 1,
-                checkOutLongitude: 1,
-                createdAt: 1,
-                updatedAt: 1
-              }
-            }
-          ],
-          total: [{ $count: 'count' }]
-        }
-      }
+        $group: {
+          _id: null,
+          presentToday: { $sum: { $cond: [{ $eq: ['$statusPriority', 2] }, 1, 0] } },
+          lateToday: { $sum: { $cond: [{ $eq: ['$statusPriority', 3] }, 1, 0] } },
+        },
+      },
+    ];
+    const [summaryResult] = await this.attendanceModel.aggregate(summaryPipeline).exec();
+    const presentToday = summaryResult?.presentToday ?? 0;
+    const lateToday = summaryResult?.lateToday ?? 0;
+    const absentToday = Math.max(0, totalEmployees - presentToday - lateToday);
+
+    // When status=absent, return paginated list of absent users (users in scope with no present/late on date)
+    if (statusLower === 'absent') {
+      const inScopeUserIds = await this.usersService.getVisibleUserIdsByFilters(currentUser, state, city, centerFilter);
+      const presentOrLateAgg = await this.attendanceModel.aggregate([
+        { $match: { date: { $gte: startDate, $lte: endDate }, ...(query.userId && { userId: query.userId }) } },
+        { $addFields: { derivedStatus: derivedStatusExpr } },
+        { $match: { derivedStatus: { $in: ['present', 'late'] } } },
+        { $group: { _id: null, userIds: { $addToSet: '$userId' } } },
+      ]).exec();
+      const presentOrLateIds = new Set(
+        ((presentOrLateAgg[0]?.userIds as Types.ObjectId[]) || []).map((id: Types.ObjectId) => id.toString()),
+      );
+      const absentUserIds = inScopeUserIds.filter(id => !presentOrLateIds.has(id));
+      const { data: absentUsers, total: absentTotal } = await this.usersService.getUsersByIdsPaginated(
+        absentUserIds,
+        search,
+        skip,
+        limit,
+      );
+      const formattedData = absentUsers.map((u: any) => ({
+        _id: null,
+        userId: {
+          _id: u._id,
+          firstname: u.firstname,
+          lastname: u.lastname,
+          email: u.email,
+          mobilenumber: u.mobilenumber,
+        },
+        date: startDate,
+        checkInTime: null,
+        checkOutTime: null,
+        isCheckedOut: false,
+        status: 'absent',
+        sessionNumber: 0,
+        checkInLatitude: null,
+        checkInLongitude: null,
+        checkOutLatitude: null,
+        checkOutLongitude: null,
+        createdAt: null,
+        updatedAt: null,
+      }));
+      return {
+        data: formattedData as any,
+        total: absentTotal,
+        page,
+        limit,
+        totalPages: Math.ceil(absentTotal / limit),
+        totalEmployees,
+        presentToday,
+        lateToday,
+        absentToday,
+      };
+    }
+
+    // Data pipeline: optional status filter, then sort, skip, limit, project
+    const dataPipeline: any[] = [];
+    if (statusFilter) {
+      dataPipeline.push({ $match: { derivedStatus: statusFilter } });
+    }
+    dataPipeline.push(
+      { $sort: { date: -1, sessionNumber: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $project: {
+          _id: 1,
+          userId: {
+            _id: '$user._id',
+            firstname: '$user.firstname',
+            lastname: '$user.lastname',
+            email: '$user.email',
+            mobilenumber: '$user.mobilenumber',
+          },
+          date: 1,
+          checkInTime: 1,
+          checkOutTime: 1,
+          isCheckedOut: 1,
+          totalHours: 1,
+          status: 1,
+          sessionNumber: 1,
+          checkInLatitude: 1,
+          checkInLongitude: 1,
+          checkOutLatitude: 1,
+          checkOutLongitude: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      },
     );
 
-    // Execute aggregation
+    // Total pipeline: count for current filters (state/city/search/status) — for table pagination only
+    const totalPipeline: any[] = [];
+    if (statusFilter) {
+      totalPipeline.push({ $match: { derivedStatus: statusFilter } });
+    }
+    totalPipeline.push({ $count: 'count' });
+
+    // Single $facet: filtered data + filtered total (no summary branch — summary is date-only above)
+    pipeline.push({
+      $facet: {
+        data: dataPipeline,
+        total: totalPipeline,
+      },
+    });
+
+    // Execute main aggregation (table data + pagination total)
     const result = await this.attendanceModel.aggregate(pipeline).exec();
 
     const data = result[0]?.data || [];
-    const total = result[0]?.total[0]?.count || 0;
+    const total = result[0]?.total[0]?.count ?? 0;
     const totalPages = Math.ceil(total / limit);
 
     return {
@@ -358,6 +517,379 @@ export class AttendanceService {
       page,
       limit,
       totalPages,
+      totalEmployees,
+      presentToday,
+      lateToday,
+      absentToday,
+    };
+  }
+
+  /**
+   * Dedicated API: get paginated user listing by status for a date.
+   * - Present: has attendance record for the date with check-in; check-in time <= 10:00 AM IST.
+   * - Late: check-in time after 10:00 AM IST.
+   * - Absent: no attendance record for the date or no check-in.
+   * Uses 10:00 AM IST (not UTC) for late cutoff.
+   */
+  async getUsersByStatusForDate(
+    date: string,
+    status: 'present' | 'late' | 'absent' | 'total',
+    page: number,
+    limit: number,
+    search: string | undefined,
+    state: string | undefined,
+    city: string | undefined,
+    center: string | undefined,
+    currentUser: any,
+  ): Promise<{
+    data: any[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    totalEmployees: number;
+    presentToday: number;
+    lateToday: number;
+    absentToday: number;
+  }> {
+    if (!date || typeof date !== 'string' || !date.trim()) {
+      return {
+        data: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        totalEmployees: 0,
+        presentToday: 0,
+        lateToday: 0,
+        absentToday: 0,
+      };
+    }
+    const startDate = DateUtil.parseDateToISTStartOfDay(date);
+    const endDate = DateUtil.parseDateToISTEndOfDay(date);
+    const skip = (page - 1) * limit;
+    const centerFilter = center || undefined;
+
+    const inScopeUserIds = await this.usersService.getVisibleUserIdsByFilters(
+      currentUser,
+      state,
+      city,
+      centerFilter,
+    );
+
+    const allowedUserIdsForQuery = inScopeUserIds.map((id) => new Types.ObjectId(id));
+
+    const query: any = {
+      date: { $gte: startDate, $lte: endDate },
+      userId: { $in: allowedUserIdsForQuery },
+    };
+
+    // 10:00 AM IST = 600 minutes from IST midnight. UTC to IST: add 330 minutes and mod 1440.
+    const istMinutesFromMidnight = {
+      $mod: [
+        {
+          $add: [
+            { $add: [{ $multiply: [{ $hour: '$checkInTime' }, 60] }, { $minute: '$checkInTime' }] },
+            330,
+          ],
+        },
+        1440,
+      ],
+    };
+    const derivedStatusExpr = {
+      $switch: {
+        branches: [
+          {
+            case: { $or: [{ $eq: ['$status', 'absent'] }, { $not: '$checkInTime' }] },
+            then: 'absent',
+          },
+          { case: { $gt: [istMinutesFromMidnight, 600] }, then: 'late' },
+        ],
+        default: 'present',
+      },
+    };
+
+    const statusPriority = {
+      $switch: {
+        branches: [
+          { case: { $eq: ['$derivedStatus', 'late'] }, then: 3 },
+          { case: { $eq: ['$derivedStatus', 'present'] }, then: 2 },
+        ],
+        default: 1,
+      },
+    };
+
+    const totalEmployees = inScopeUserIds.length;
+    const summaryAgg = await this.attendanceModel
+      .aggregate([
+        { $match: query },
+        { $addFields: { derivedStatus: derivedStatusExpr } },
+        { $addFields: { statusPriority } },
+        { $group: { _id: '$userId', statusPriority: { $max: '$statusPriority' } } },
+        {
+          $group: {
+            _id: null,
+            presentToday: { $sum: { $cond: [{ $eq: ['$statusPriority', 2] }, 1, 0] } },
+            lateToday: { $sum: { $cond: [{ $eq: ['$statusPriority', 3] }, 1, 0] } },
+          },
+        },
+      ])
+      .exec();
+    const presentToday = summaryAgg[0]?.presentToday ?? 0;
+    const lateToday = summaryAgg[0]?.lateToday ?? 0;
+    const absentToday = Math.max(0, totalEmployees - presentToday - lateToday);
+
+    if (status === 'absent') {
+      const presentOrLateAgg = await this.attendanceModel
+        .aggregate([
+          { $match: query },
+          { $addFields: { derivedStatus: derivedStatusExpr } },
+          { $match: { derivedStatus: { $in: ['present', 'late'] } } },
+          { $group: { _id: null, userIds: { $addToSet: '$userId' } } },
+        ])
+        .exec();
+      const presentOrLateIds = new Set(
+        ((presentOrLateAgg[0]?.userIds as Types.ObjectId[]) || []).map((id: Types.ObjectId) =>
+          id.toString(),
+        ),
+      );
+      const absentUserIds = inScopeUserIds.filter((id) => !presentOrLateIds.has(id));
+      const { data: absentUsers, total: absentTotal } =
+        await this.usersService.getUsersByIdsPaginated(absentUserIds, search, skip, limit);
+      const formattedData = absentUsers.map((u: any) => ({
+        _id: null,
+        userId: {
+          _id: u._id,
+          firstname: u.firstname,
+          lastname: u.lastname,
+          email: u.email,
+          mobilenumber: u.mobilenumber,
+        },
+        date: startDate,
+        checkInTime: null,
+        checkOutTime: null,
+        isCheckedOut: false,
+        status: 'absent',
+        sessionNumber: 0,
+        checkInLatitude: null,
+        checkInLongitude: null,
+        checkOutLatitude: null,
+        checkOutLongitude: null,
+        createdAt: null,
+        updatedAt: null,
+      }));
+      return {
+        data: formattedData,
+        total: absentTotal,
+        page,
+        limit,
+        totalPages: Math.ceil(absentTotal / limit),
+        totalEmployees,
+        presentToday,
+        lateToday,
+        absentToday,
+      };
+    }
+
+    if (status === 'total') {
+      const { data: users, total: totalCount } = await this.usersService.getUsersByIdsPaginated(
+        inScopeUserIds,
+        search,
+        skip,
+        limit,
+      );
+      const formattedData = users.map((u: any) => ({
+        _id: null,
+        userId: {
+          _id: u._id,
+          firstname: u.firstname,
+          lastname: u.lastname,
+          email: u.email,
+          mobilenumber: u.mobilenumber,
+        },
+        date: startDate,
+        checkInTime: null,
+        checkOutTime: null,
+        isCheckedOut: false,
+        status: '',
+        sessionNumber: 0,
+        checkInLatitude: null,
+        checkInLongitude: null,
+        checkOutLatitude: null,
+        checkOutLongitude: null,
+        createdAt: null,
+        updatedAt: null,
+      }));
+      return {
+        data: formattedData,
+        total: totalCount,
+        page,
+        limit,
+        totalPages: Math.ceil(totalCount / limit),
+        totalEmployees,
+        presentToday,
+        lateToday,
+        absentToday,
+      };
+    }
+
+    const statusFilter = status === 'present' || status === 'late' ? status : null;
+    if (!statusFilter) {
+      return {
+        data: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+        totalEmployees,
+        presentToday,
+        lateToday,
+        absentToday,
+      };
+    }
+
+    // Filter by derived status BEFORE $lookup so data pipeline matches summary counts
+    const pipeline: any[] = [
+      { $match: query },
+      { $addFields: { derivedStatus: derivedStatusExpr } },
+      { $match: { derivedStatus: statusFilter } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'user',
+        },
+      },
+      { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+    ];
+
+    const matchStage: any = {};
+    if (state && typeof state === 'string' && state.trim()) {
+      matchStage['user.state'] = { $regex: String(state).trim(), $options: 'i' };
+    }
+    if (city && typeof city === 'string' && city.trim()) {
+      matchStage['user.city'] = { $regex: String(city).trim(), $options: 'i' };
+    }
+    if (centerFilter && typeof centerFilter === 'string' && centerFilter.trim()) {
+      matchStage['user.center'] = { $regex: String(centerFilter).trim(), $options: 'i' };
+    }
+    if (Object.keys(matchStage).length > 0) {
+      pipeline.push({ $match: matchStage });
+    }
+
+    if (search && typeof search === 'string' && search.trim()) {
+      const searchTerm = search.trim();
+      pipeline.push({
+        $match: {
+          $or: [
+            { 'user.firstname': { $regex: searchTerm, $options: 'i' } },
+            { 'user.lastname': { $regex: searchTerm, $options: 'i' } },
+            { 'user.email': { $regex: searchTerm, $options: 'i' } },
+            { 'user.mobilenumber': { $regex: searchTerm, $options: 'i' } },
+            {
+              $expr: {
+                $regexMatch: {
+                  input: { $concat: ['$user.firstname', ' ', '$user.lastname'] },
+                  regex: searchTerm,
+                  options: 'i',
+                },
+              },
+            },
+          ],
+        },
+      });
+    }
+
+    pipeline.push(
+      { $sort: { date: -1, sessionNumber: -1 } },
+      { $skip: skip },
+      { $limit: limit },
+      {
+        $project: {
+          _id: 1,
+          userId: {
+            _id: '$user._id',
+            firstname: '$user.firstname',
+            lastname: '$user.lastname',
+            email: '$user.email',
+            mobilenumber: '$user.mobilenumber',
+          },
+          date: 1,
+          checkInTime: 1,
+          checkOutTime: 1,
+          isCheckedOut: 1,
+          totalHours: 1,
+          status: 1,
+          sessionNumber: 1,
+          checkInLatitude: 1,
+          checkInLongitude: 1,
+          checkOutLatitude: 1,
+          checkOutLongitude: 1,
+          createdAt: 1,
+          updatedAt: 1,
+        },
+      },
+    );
+
+    const countPipeline: any[] = [
+      { $match: query },
+      { $addFields: { derivedStatus: derivedStatusExpr } },
+      { $match: { derivedStatus: statusFilter } },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'userId',
+          foreignField: '_id',
+          as: 'user',
+        },
+      },
+      { $unwind: { path: '$user', preserveNullAndEmptyArrays: true } },
+    ];
+    if (Object.keys(matchStage).length > 0) {
+      countPipeline.push({ $match: matchStage });
+    }
+    if (search && typeof search === 'string' && search.trim()) {
+      const searchTerm = search.trim();
+      countPipeline.push({
+        $match: {
+          $or: [
+            { 'user.firstname': { $regex: searchTerm, $options: 'i' } },
+            { 'user.lastname': { $regex: searchTerm, $options: 'i' } },
+            { 'user.email': { $regex: searchTerm, $options: 'i' } },
+            { 'user.mobilenumber': { $regex: searchTerm, $options: 'i' } },
+            {
+              $expr: {
+                $regexMatch: {
+                  input: { $concat: ['$user.firstname', ' ', '$user.lastname'] },
+                  regex: searchTerm,
+                  options: 'i',
+                },
+              },
+            },
+          ],
+        },
+      });
+    }
+    countPipeline.push({ $count: 'count' });
+
+    const [dataResult, countResult] = await Promise.all([
+      this.attendanceModel.aggregate(pipeline).exec(),
+      this.attendanceModel.aggregate(countPipeline).exec(),
+    ]);
+    const data = dataResult || [];
+    const total = countResult[0]?.count ?? 0;
+
+    return {
+      data: data as any[],
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      totalEmployees,
+      presentToday,
+      lateToday,
+      absentToday,
     };
   }
 

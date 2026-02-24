@@ -372,6 +372,7 @@ export class AttendanceController {
   @ApiQuery({ name: 'city', required: false, description: 'Filter by city', example: 'Mumbai' })
   @ApiQuery({ name: 'taluka', required: false, description: 'Filter by taluka/center', example: 'Downtown' })
   @ApiQuery({ name: 'center', required: false, description: 'Filter by center', example: 'Downtown' })
+  @ApiQuery({ name: 'status', required: false, description: 'Filter by derived status: present | late', example: 'present' })
   @ApiResponse({
     status: 200,
     description: 'All users attendance retrieved successfully',
@@ -419,6 +420,16 @@ export class AttendanceController {
             totalPages: { type: 'number', example: 3 }
           }
         },
+        summary: {
+          type: 'object',
+          description: 'DB-level counts for the full filtered dataset (date + state + city + taluka), not paginated',
+          properties: {
+            totalEmployees: { type: 'number', example: 79 },
+            presentToday: { type: 'number', example: 50 },
+            lateToday: { type: 'number', example: 10 },
+            absentToday: { type: 'number', example: 19 }
+          }
+        },
         timestamp: { type: 'string', format: 'date-time' },
         path: { type: 'string', example: '/api/attendance/admin/all-users' }
       }
@@ -437,6 +448,7 @@ export class AttendanceController {
     @Query('city') city?: string,
     @Query('taluka') taluka?: string,
     @Query('center') center?: string,
+    @Query('status') status?: string,
   ) {
     const result = await this.attendanceService.getAllUsersAttendance(
       date,
@@ -447,7 +459,8 @@ export class AttendanceController {
       state,
       city,
       center || taluka,
-      req.user
+      req.user,
+      status
     );
 
     return {
@@ -460,8 +473,70 @@ export class AttendanceController {
         total: result.total,
         totalPages: result.totalPages
       },
+      summary: {
+        totalEmployees: result.totalEmployees,
+        presentToday: result.presentToday,
+        lateToday: result.lateToday,
+        absentToday: result.absentToday
+      },
       timestamp: DateUtil.toISOStringIST(new Date()),
       path: '/api/attendance/admin/all-users'
+    };
+  }
+
+  @Get('admin/users-by-status')
+  @ApiOperation({
+    summary: 'Get paginated user listing by status for a date (Present / Late / Absent / Total)',
+  })
+  @ApiQuery({ name: 'date', required: true, description: 'Date YYYY-MM-DD' })
+  @ApiQuery({ name: 'status', required: true, description: 'present | late | absent | total' })
+  @ApiQuery({ name: 'page', required: false, example: '1' })
+  @ApiQuery({ name: 'limit', required: false, example: '10' })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'state', required: false })
+  @ApiQuery({ name: 'city', required: false })
+  @ApiQuery({ name: 'center', required: false })
+  @ApiResponse({ status: 200, description: 'Paginated list and summary counts' })
+  async getUsersByStatus(
+    @Request() req: any,
+    @Query('date') date: string,
+    @Query('status') status: 'present' | 'late' | 'absent' | 'total',
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+    @Query('search') search?: string,
+    @Query('state') state?: string,
+    @Query('city') city?: string,
+    @Query('center') center?: string,
+  ) {
+    const result = await this.attendanceService.getUsersByStatusForDate(
+      date,
+      status,
+      parseInt(page, 10) || 1,
+      parseInt(limit, 10) || 10,
+      search,
+      state,
+      city,
+      center,
+      req.user,
+    );
+    return {
+      code: 200,
+      status: 'OK',
+      data: result.data,
+      pagination: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+      },
+      summary: {
+        totalEmployees: result.totalEmployees,
+        presentToday: result.presentToday,
+        lateToday: result.lateToday,
+        absentToday: result.absentToday,
+      },
+      timestamp: DateUtil.toISOStringIST(new Date()),
+      path: '/api/attendance/admin/users-by-status',
     };
   }
 

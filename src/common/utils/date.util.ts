@@ -69,14 +69,12 @@ export class DateUtil {
   }
 
   /**
-   * Convert a date string to IST date (end of day)
+   * Convert a date string to IST date (end of day).
+   * Must be consistent with parseDateToISTStartOfDay: end of IST day = start of that IST day + 24h - 1ms.
    */
   static parseDateToISTEndOfDay(dateString: string): Date {
-    const date = new Date(dateString);
-    const istOffset = 5.5 * 60 * 60 * 1000;
-    const istDate = new Date(date.getTime() + istOffset);
-    istDate.setHours(23, 59, 59, 999);
-    return istDate;
+    const startOfDay = this.parseDateToISTStartOfDay(dateString);
+    return new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000 - 1);
   }
 
   /**

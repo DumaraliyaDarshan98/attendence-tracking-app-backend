@@ -56,10 +56,14 @@ AttendanceSchema.index({ userId: 1, date: 1, sessionNumber: 1 }, {
 });
 
 // Ensure no old unique constraints exist
-AttendanceSchema.index({ userId: 1, date: 1 }, { 
+AttendanceSchema.index({ userId: 1, date: 1 }, {
   unique: false,
   name: 'userId_date_non_unique'
 });
+
+// Indexes for admin all-users aggregation (date filter + pagination)
+AttendanceSchema.index({ date: 1 }, { name: 'date_1' });
+AttendanceSchema.index({ date: 1, userId: 1 }, { name: 'date_1_userId_1' });
 
 // Handle index creation errors gracefully
 AttendanceSchema.on('index', function (error) {
