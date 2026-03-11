@@ -163,13 +163,17 @@ export class AttendanceService {
     const start = DateUtil.parseDateToISTStartOfDay(startDate);
     const end = DateUtil.parseDateToISTEndOfDay(endDate);
 
-    return this.attendanceModel.find({
-      userId,
-      date: {
-        $gte: start,
-        $lte: end,
-      },
-    }).sort({ date: -1 }).exec();
+    return this.attendanceModel
+      .find({
+        userId: new Types.ObjectId(userId),
+        date: {
+          $gte: start,
+          $lte: end,
+        },
+      })
+      .sort({ date: -1, sessionNumber: -1 })
+      .lean()
+      .exec();
   }
 
   async getTodayAttendance(userId: string): Promise<Attendance[]> {

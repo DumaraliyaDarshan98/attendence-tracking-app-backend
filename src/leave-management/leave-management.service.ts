@@ -153,15 +153,25 @@ export class LeaveManagementService {
       }
     }
 
-    // Date range filter
+    // Date range filter: use overlap so leaves that touch the range are included
+    // Leave overlaps [start, end] when leave.startDate <= end AND leave.endDate >= start
     if (filters.startDate || filters.endDate) {
-      filter.$and = filter.$and || [];
-      
-      if (filters.startDate) {
-        filter.$and.push({ startDate: { $gte: new Date(filters.startDate) } });
-      }
-      if (filters.endDate) {
-        filter.$and.push({ endDate: { $lte: new Date(filters.endDate) } });
+      if (filters.startDate && filters.endDate) {
+        const rangeStart = new Date(filters.startDate);
+        rangeStart.setHours(0, 0, 0, 0);
+        const rangeEnd = new Date(filters.endDate);
+        rangeEnd.setHours(23, 59, 59, 999);
+        filter.$and = filter.$and || [];
+        filter.$and.push({ startDate: { $lte: rangeEnd } });
+        filter.$and.push({ endDate: { $gte: rangeStart } });
+      } else {
+        filter.$and = filter.$and || [];
+        if (filters.startDate) {
+          filter.$and.push({ startDate: { $gte: new Date(filters.startDate) } });
+        }
+        if (filters.endDate) {
+          filter.$and.push({ endDate: { $lte: new Date(filters.endDate) } });
+        }
       }
     }
 

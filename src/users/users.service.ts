@@ -553,33 +553,69 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
-    // Get attendance records
-    const attendanceRecords = await this.attendanceService.getAttendanceByDateRange(userId, startDate, endDate);
+    // Get attendance records (ensure array; normalize Mongoose docs to plain objects for consistent binding)
+    let attendanceList: any[] = [];
+    try {
+      const raw = await this.attendanceService.getAttendanceByDateRange(userId, startDate, endDate);
+      attendanceList = Array.isArray(raw) ? raw : [];
+    } catch {
+      attendanceList = [];
+    }
+    console.log("attendanceList", attendanceList);
+    const attendanceRecords = attendanceList.map((r: any) => (r && typeof r.toObject === 'function' ? r.toObject() : r));
 
-    // Get leave requests
-    const leaveRequests = await this.leaveManagementService.getAllLeaveRequests(1, 10000, {
-      userId,
-      startDate,
-      endDate,
-    });
+    // Get leave requests (overlap date filter applied in leave service)
+    let leaveList: any[] = [];
+    try {
+      const leaveRes = await this.leaveManagementService.getAllLeaveRequests(1, 10000, {
+        userId,
+        startDate,
+        endDate,
+      });
+      leaveList = Array.isArray(leaveRes?.data) ? leaveRes.data : [];
+    } catch {
+      leaveList = [];
+    }
 
-    // Get tours
-    const toursResult = await this.tourManagementService.findByUser(userId, 1, 10000);
-    const tours = toursResult.data.filter(tour => {
-      const tourDate = new Date(tour.expectedTime);
+    // Get tours for user, then filter by report date range
+    let tours: any[] = [];
+    try {
+      const toursResult = await this.tourManagementService.findByUser(userId, 1, 10000);
+      const allTours = Array.isArray(toursResult?.data) ? toursResult.data : [];
       const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
-      return tourDate >= start && tourDate <= end;
-    });
+      tours = allTours.filter((tour: any) => {
+        const t = tour?.expectedTime;
+        if (t == null) return false;
+        const tourDate = t instanceof Date ? t : new Date(t);
+        return !isNaN(tourDate.getTime()) && tourDate >= start && tourDate <= end;
+      });
+    } catch {
+      tours = [];
+    }
+
+    // Helper: format date for sheet (handles Date or string)
+    const fmtDate = (v: any): string => {
+      if (v == null) return '';
+      const d = v instanceof Date ? v : new Date(v);
+      return isNaN(d.getTime()) ? '' : d.toLocaleDateString();
+    };
+    const fmtDateTime = (v: any): string => {
+      if (v == null) return '';
+      const d = v instanceof Date ? v : new Date(v);
+      return isNaN(d.getTime()) ? '' : d.toLocaleString();
+    };
 
     // Create workbook
     const wb = XLSX.utils.book_new();
 
-    // Sheet 1: User Information
+    // Sheet 1: User Information (include report period)
     const userData = [
       ['User Information'],
       ['Field', 'Value'],
+      ['Report Period', `${startDate} to ${endDate}`],
       ['First Name', user.firstname || ''],
       ['Last Name', user.lastname || ''],
       ['Email', user.email || ''],
@@ -593,8 +629,8 @@ export class UsersService {
       ['Center/Taluka', user.center || ''],
       ['Pincode', user.pincode || ''],
       ['Status', user.isActive ? 'Active' : 'Inactive'],
-      ['Created At', user.createdAt ? new Date(user.createdAt).toLocaleString() : ''],
-      ['Updated At', user.updatedAt ? new Date(user.updatedAt).toLocaleString() : ''],
+      ['Created At', user.createdAt ? fmtDateTime(user.createdAt) : ''],
+      ['Updated At', user.updatedAt ? fmtDateTime(user.updatedAt) : ''],
     ];
     const userWs = XLSX.utils.aoa_to_sheet(userData);
     XLSX.utils.book_append_sheet(wb, userWs, 'User Information');
@@ -610,17 +646,17 @@ export class UsersService {
       'Check-In Location (Lat, Long)',
       'Check-Out Location (Lat, Long)',
     ];
-    const attendanceRows = attendanceRecords.map(record => [
-      record.date ? new Date(record.date).toLocaleDateString() : '',
-      record.checkInTime ? new Date(record.checkInTime).toLocaleString() : '',
-      record.checkOutTime ? new Date(record.checkOutTime).toLocaleString() : '',
-      record.totalHours || '',
-      record.status || '',
-      record.sessionNumber || '',
-      record.checkInLatitude && record.checkInLongitude
+    const attendanceRows = attendanceRecords.map((record: any) => [
+      fmtDate(record?.date),
+      fmtDateTime(record?.checkInTime),
+      fmtDateTime(record?.checkOutTime),
+      record?.totalHours ?? '',
+      record?.status ?? '',
+      record?.sessionNumber ?? '',
+      record?.checkInLatitude != null && record?.checkInLongitude != null
         ? `${record.checkInLatitude}, ${record.checkInLongitude}`
         : '',
-      record.checkOutLatitude && record.checkOutLongitude
+      record?.checkOutLatitude != null && record?.checkOutLongitude != null
         ? `${record.checkOutLatitude}, ${record.checkOutLongitude}`
         : '',
     ]);
@@ -644,23 +680,29 @@ export class UsersService {
       'Notes',
       'Created At',
     ];
-    const leaveRows = leaveRequests.data.map(leave => [
-      leave.leaveType || '',
-      leave.startDate ? new Date(leave.startDate).toLocaleDateString() : '',
-      leave.endDate ? new Date(leave.endDate).toLocaleDateString() : '',
-      leave.totalDays || '',
-      leave.status || '',
-      leave.reason || '',
-      leave.isHalfDay ? 'Yes' : 'No',
-      leave.halfDayType || '',
-      leave.approvedBy
-        ? `${(leave.approvedBy as any).firstname || ''} ${(leave.approvedBy as any).lastname || ''}`
-        : '',
-      leave.approvedAt ? new Date(leave.approvedAt).toLocaleString() : '',
-      leave.rejectionReason || '',
-      leave.notes || '',
-      leave.createdAt ? new Date(leave.createdAt).toLocaleString() : '',
-    ]);
+    const leaveRows = leaveList.map((leave: any) => {
+      const approvedByName =
+        leave?.approvedBy &&
+        typeof leave.approvedBy === 'object' &&
+        !(leave.approvedBy instanceof Date)
+          ? [leave.approvedBy.firstname, leave.approvedBy.lastname].filter(Boolean).join(' ') || ''
+          : '';
+      return [
+        leave?.leaveType ?? '',
+        fmtDate(leave?.startDate),
+        fmtDate(leave?.endDate),
+        leave?.totalDays ?? '',
+        leave?.status ?? '',
+        leave?.reason ?? '',
+        leave?.isHalfDay ? 'Yes' : 'No',
+        leave?.halfDayType ?? '',
+        approvedByName,
+        fmtDateTime(leave?.approvedAt),
+        leave?.rejectionReason ?? '',
+        leave?.notes ?? '',
+        fmtDateTime(leave?.createdAt),
+      ];
+    });
     const leaveData = [leaveHeaders, ...leaveRows];
     const leaveWs = XLSX.utils.aoa_to_sheet(leaveData);
     XLSX.utils.book_append_sheet(wb, leaveWs, 'Leaves');
@@ -678,17 +720,17 @@ export class UsersService {
       'Created At',
       'Updated At',
     ];
-    const tourRows = tours.map(tour => [
-      tour.purpose || '',
-      tour.location || '',
-      tour.expectedTime ? new Date(tour.expectedTime).toLocaleString() : '',
-      tour.actualVisitTime ? new Date(tour.actualVisitTime).toLocaleString() : '',
-      tour.status || '',
-      tour.userNotes || '',
-      tour.adminNotes || '',
-      tour.completionNotes || '',
-      tour.createdAt ? new Date(tour.createdAt).toLocaleString() : '',
-      tour.updatedAt ? new Date(tour.updatedAt).toLocaleString() : '',
+    const tourRows = tours.map((tour: any) => [
+      tour?.purpose ?? '',
+      tour?.location ?? '',
+      fmtDateTime(tour?.expectedTime),
+      fmtDateTime(tour?.actualVisitTime),
+      tour?.status ?? '',
+      tour?.userNotes ?? '',
+      tour?.adminNotes ?? '',
+      tour?.completionNotes ?? '',
+      fmtDateTime(tour?.createdAt),
+      fmtDateTime(tour?.updatedAt),
     ]);
     const tourData = [tourHeaders, ...tourRows];
     const tourWs = XLSX.utils.aoa_to_sheet(tourData);
