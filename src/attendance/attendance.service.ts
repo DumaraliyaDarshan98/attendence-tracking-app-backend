@@ -280,8 +280,8 @@ export class AttendanceService {
     // Summary counts depend ONLY on date (and visibility). Do not use state/city/taluka/search/status for summary.
     const totalEmployees = await this.usersService.getCountByFilters(currentUser); // no location filters
 
-    // Derived status: same logic as frontend — 10:30 AM UTC cutoff for late.
-    // absent: backend status 'absent' or no checkInTime; late: checkInTime > 10:30 UTC; else present.
+    // Derived status: same logic as frontend — 10:10 AM UTC cutoff for late.
+    // absent: backend status 'absent' or no checkInTime; late: checkInTime > 10:10 UTC; else present.
     const derivedStatusExpr = {
       $switch: {
         branches: [
@@ -293,7 +293,7 @@ export class AttendanceService {
             case: {
               $gt: [
                 { $add: [{ $multiply: [{ $hour: '$checkInTime' }, 60] }, { $minute: '$checkInTime' }] },
-                630,
+                610,
               ],
             },
             then: 'late',
@@ -530,10 +530,10 @@ export class AttendanceService {
 
   /**
    * Dedicated API: get paginated user listing by status for a date.
-   * - Present: has attendance record for the date with check-in; check-in time <= 10:00 AM IST.
-   * - Late: check-in time after 10:00 AM IST.
+   * - Present: has attendance record for the date with check-in; check-in time <= 10:10 AM IST.
+   * - Late: check-in time after 10:10 AM IST.
    * - Absent: no attendance record for the date or no check-in.
-   * Uses 10:00 AM IST (not UTC) for late cutoff.
+   * Uses 10:10 AM IST (not UTC) for late cutoff.
    */
   async getUsersByStatusForDate(
     date: string,
@@ -588,7 +588,7 @@ export class AttendanceService {
       userId: { $in: allowedUserIdsForQuery },
     };
 
-    // 10:00 AM IST = 600 minutes from IST midnight. UTC to IST: add 330 minutes and mod 1440.
+    // 10:10 AM IST = 610 minutes from IST midnight. UTC to IST: add 330 minutes and mod 1440.
     const istMinutesFromMidnight = {
       $mod: [
         {
@@ -607,7 +607,7 @@ export class AttendanceService {
             case: { $or: [{ $eq: ['$status', 'absent'] }, { $not: '$checkInTime' }] },
             then: 'absent',
           },
-          { case: { $gt: [istMinutesFromMidnight, 600] }, then: 'late' },
+          { case: { $gt: [istMinutesFromMidnight, 610] }, then: 'late' },
         ],
         default: 'present',
       },
